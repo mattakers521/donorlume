@@ -1,0 +1,433 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── MULTI-TENANCY ───
+
+model Organization {
+  id        String   @id @default(cuid())
+  name      String
+  mission   String?  @db.Text
+  // Free-form cause area (e.g. "food security", "youth education").
+  // Feeds the AI outreach prompt + Prospect Discovery filters.
+  causeArea String?
+  // Mailing address — single free-form block so we don't have to model
+  // country/state/zip variations. Display verbatim.
+  address   String?  @db.Text
+  website   String?
+  logo      String?
+  plan      Plan     @default(STARTER)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // ─── Stripe billing ───
+  // Stripe customer is created lazily on first checkout; the subscription
+  // fields stay null for trial-only orgs. stripeStatus mirrors the upstream
+  // Stripe subscription.status verbatim so a single field can drive UI
+  // gating (active / trialing / past_due / canceled / incomplete).
+  stripeCustomerId     String?   @unique
+  stripeSubscriptionId String?   @unique
+  stripePriceId        String?
+  stripeStatus         String?
+  currentPeriodEnd     DateTime?
+  cancelAtPeriodEnd    Boolean   @default(false)
+  trialEndsAt          DateTime?
+
+  /**
+   * What did the signer-up tell us about their primary use case?
+   * Captured from the landing page's "Choose Your Path" cards via
+   * ?path=event|donors. Drives the onboarding-checklist copy so step 2
+   * speaks in the user's language (event-platform exports vs. CRM
+   * exports). Optional — pre-existing orgs and Google-OAuth signups
+   * without the param stay null and see the default donor wording.
+   */
+  signupPath String?
+
+  users             OrgUser[]
+  prospects         Prospect[]
+  donorLists        DonorList[]
+  outreachCampaigns OutreachCampaign[]
+  cohortDefinitions CohortDefinition[]
+  settings          OrgSettings?
+  invitations       Invitation[]
+}
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  emailVerified DateTime?
+  name          String?
+  passwordHash  String?
+  image         String?
+  createdAt     DateTime  @default(now())
+
+  // Lifecycle + activity tracking (used by transactional emails + Slack
+  // churn alerts). All optional so existing rows backfill as NULL.
+  lastActiveAt              DateTime?
+  inactiveSlackedAt         DateTime?
+  welcomeSentAt             DateTime?
+  gettingStartedNudgeSentAt DateTime?
+
+  // First-run onboarding checklist on the dashboard. Set to true when
+  // the user clicks "I'll explore on my own"; flipped once and never back.
+  dismissedOnboarding Boolean @default(false)
+
+  // Per-user notification preferences. All default true so existing
+  // users keep getting messages unless they explicitly opt out.
+  notifyWelcomeEmails            Boolean @default(true)
+  notifyGettingStartedNudges     Boolean @default(true)
+  notifyCampaignCompletionAlerts Boolean @default(true)
+
+  // Captures the exact moment the user accepted ToS + Privacy. Required
+  // for new signups; nullable for grandfathered pre-acceptance accounts.
+  termsAcceptedAt DateTime?
+
+  orgs            OrgUser[]
+  outreachDrafts  OutreachDraft[]
+  accounts        Account[]
+  sentInvitations Invitation[]
+}
+
+// ─── NEXTAUTH (JWT strategy — no Session model needed) ───
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+model OrgUser {
+  id        String   @id @default(cuid())
+  userId    String
+  orgId     String
+  role      Role     @default(MEMBER)
+  createdAt DateTime @default(now())
+
+  user User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  org  Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, orgId])
+}
+
+/**
+ * Pending invitations to join an org. Created via /api/team/invites,
+ * acceptance is the /invite/[token] flow which creates the OrgUser row.
+ * Tokens are single-use (acceptedAt blocks re-use). Unique on
+ * (orgId, email) so re-inviting the same email rotates the token.
+ */
+model Invitation {
+  id          String    @id @default(cuid())
+  orgId       String
+  email       String
+  role        Role      @default(MEMBER)
+  token       String    @unique
+  invitedById String
+  expiresAt   DateTime
+  acceptedAt  DateTime?
+  createdAt   DateTime  @default(now())
+
+  org       Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  invitedBy User         @relation(fields: [invitedById], references: [id], onDelete: Cascade)
+
+  @@unique([orgId, email])
+}
+
+model OrgSettings {
+  id                    String  @id @default(cuid())
+  orgId                 String  @unique
+  lapsedThresholdMonths Int     @default(12)
+  defaultTone           String  @default("warm")
+  defaultEmailType      String  @default("reactivation")
+  senderName            String?
+  senderTitle           String?
+  senderEmail           String?
+  customInstructions    String? @db.Text
+
+  org Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+}
+
+enum Plan {
+  STARTER // $129/mo  — 2.5K donor records, 2 users, 50 AI emails/mo
+  GROWTH // $399/mo  — 10K records, 5 users, 250 AI emails/mo
+  SCALE // $999/mo  — 50K records, unlimited users, unlimited AI emails
+  ENTERPRISE // Custom — bespoke / managed-services tier
+}
+
+enum Role {
+  OWNER
+  ADMIN
+  MEMBER
+  VIEWER
+}
+
+// ─── PROSPECT DISCOVERY ───
+
+model Prospect {
+  id            String         @id @default(cuid())
+  orgId         String
+  ein           String?
+  name          String
+  type          ProspectType
+  city          String?
+  state         String?
+  nteeCode      String?
+  revenue       Float?
+  assets        Float?
+  causeAffinity String?
+  capacity      String?
+  score         Int?
+  status        ProspectStatus @default(RESEARCHING)
+  notes         String?        @db.Text
+  source        String? // "propublica", "manual", "enrichment"
+  metadata      Json? // flexible storage for API data
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  org Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@index([orgId, status])
+  @@index([orgId, score])
+}
+
+enum ProspectType {
+  INDIVIDUAL
+  FOUNDATION
+  CORPORATE
+  DAF
+  GOVERNMENT
+}
+
+enum ProspectStatus {
+  RESEARCHING
+  WARM
+  HOT
+  CONTACTED
+  CULTIVATING
+  ASKED
+  COMMITTED
+  DECLINED
+  ARCHIVED
+}
+
+// ─── LAPSED DONOR SCORING ───
+
+model DonorList {
+  id          String    @id @default(cuid())
+  orgId       String
+  name        String // "Spring 2026 Upload", "Full CRM Export"
+  fileName    String
+  fileUrl     String? // S3 path
+  totalDonors Int
+  lapsedCount Int?
+  processedAt DateTime?
+  createdAt   DateTime  @default(now())
+
+  org    Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  donors Donor[]
+}
+
+model Donor {
+  id            String    @id @default(cuid())
+  donorListId   String
+  name          String
+  email         String?
+  donorType     String? // Individual, Corporate, Foundation
+  firstGiftDate DateTime?
+  lastGiftDate  DateTime?
+  totalGifts    Int?
+  totalGiven    Float?
+  largestGift   Float?
+  notes         String?   @db.Text
+
+  // Computed scores
+  isLapsed          Boolean @default(false)
+  reactivationScore Int?
+  tier              String? // High, Medium, Low, Cold
+  recencyScore      Int?
+  frequencyScore    Int?
+  monetaryScore     Int?
+  tenureScore       Int?
+
+  // Enrichment
+  activeElsewhere Boolean?
+  searchIntent    Boolean?
+  enrichmentData  Json?
+
+  createdAt DateTime @default(now())
+
+  donorList      DonorList       @relation(fields: [donorListId], references: [id], onDelete: Cascade)
+  outreachDrafts OutreachDraft[]
+  cohorts        DonorCohort[]
+
+  @@index([donorListId, reactivationScore])
+  @@index([donorListId, isLapsed])
+}
+
+// ─── COHORT SYSTEM (Spec §1) ───
+
+model CohortDefinition {
+  id           String       @id @default(cuid())
+  orgId        String
+  name         String
+  slug         String
+  family       CohortFamily
+  type         CohortType
+  description  String?
+
+  /// SYSTEM cohorts store their auto-classification rule as JSON
+  /// (see lib/cohorts/rules.ts for the operator vocabulary).
+  rule         Json?
+
+  /// For tag-based cohorts seeded from CSV column values (Phase 2).
+  sourceColumn String?
+  sourceValue  String?
+
+  color        String?
+  icon         String?
+  sortOrder    Int          @default(0)
+  isArchived   Boolean      @default(false)
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  org          Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  members      DonorCohort[]
+
+  @@unique([orgId, slug])
+  @@index([orgId, family])
+}
+
+model DonorCohort {
+  id                 String   @id @default(cuid())
+  donorId            String
+  cohortDefinitionId String
+  assignedAt         DateTime @default(now())
+  assignmentType     String   @default("auto") // "auto" | "manual" | "csv"
+  confidence         Float?
+
+  donor  Donor            @relation(fields: [donorId], references: [id], onDelete: Cascade)
+  cohort CohortDefinition @relation(fields: [cohortDefinitionId], references: [id], onDelete: Cascade)
+
+  @@unique([donorId, cohortDefinitionId])
+  @@index([cohortDefinitionId])
+  @@index([donorId])
+}
+
+enum CohortFamily {
+  GIVING_BEHAVIOR
+  ENGAGEMENT
+  ENTITY_TYPE
+  TRAJECTORY
+  CUSTOM
+}
+
+enum CohortType {
+  SYSTEM
+  CUSTOM
+}
+
+// ─── AI OUTREACH ───
+
+model OutreachCampaign {
+  id                 String   @id @default(cuid())
+  orgId              String
+  name               String
+  tone               String   @default("warm")
+  emailType          String   @default("reactivation")
+  campaign           String?
+  customInstructions String?  @db.Text
+  totalDrafts        Int      @default(0)
+  sentCount          Int      @default(0)
+  // Aggregate counters bumped by tracking pixel + Resend webhook events.
+  deliveredCount     Int      @default(0)
+  openedCount        Int      @default(0)
+  clickedCount       Int      @default(0)
+  repliedCount       Int      @default(0)
+  bouncedCount       Int      @default(0)
+  createdAt          DateTime @default(now())
+
+  org    Organization    @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  drafts OutreachDraft[]
+}
+
+model OutreachDraft {
+  id             String      @id @default(cuid())
+  campaignId     String
+  donorId        String?
+  userId         String
+  recipientName  String
+  recipientEmail String?
+  subject        String
+  body           String      @db.Text
+  status         DraftStatus @default(DRAFT)
+  // Send + delivery lifecycle (Resend integration).
+  messageId      String? // Resend message id, set after successful send
+  sentAt         DateTime?
+  deliveredAt    DateTime?
+  openedAt       DateTime? // first open
+  openCount      Int         @default(0)
+  clickedAt      DateTime? // first click
+  clickCount     Int         @default(0)
+  repliedAt      DateTime?
+  bouncedAt      DateTime?
+  bounceReason   String?
+  unsubscribedAt DateTime?
+  trackingId     String?     @unique // UUID stamped onto the pixel + click wrappers
+  metadata       Json? // donor context snapshot
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+
+  campaign OutreachCampaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  donor    Donor?           @relation(fields: [donorId], references: [id])
+  user     User             @relation(fields: [userId], references: [id])
+  clicks   EmailClick[]
+
+  @@index([campaignId, status])
+  @@index([messageId])
+}
+
+model EmailClick {
+  id        String   @id @default(cuid())
+  draftId   String
+  url       String
+  clickedAt DateTime @default(now())
+  userAgent String?
+
+  draft OutreachDraft @relation(fields: [draftId], references: [id], onDelete: Cascade)
+
+  @@index([draftId])
+}
+
+enum DraftStatus {
+  DRAFT
+  APPROVED
+  SENT
+  OPENED
+  REPLIED
+  BOUNCED
+}

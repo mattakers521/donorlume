@@ -12,6 +12,8 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Reference files — keep readable but don't lint them.
+    "donorluma-app.jsx",
   ]),
 ]);
 

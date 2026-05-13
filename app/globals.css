@@ -1,26 +1,827 @@
 @import "tailwindcss";
 
+/* ─── DonorLume "Apple Warm" design tokens ─── */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --bg: #fafaf8;
+  --surface: #ffffff;
+  --surface-hover: #f5f4f1;
+  --border: rgba(0, 0, 0, 0.06);
+  --border-subtle: rgba(0, 0, 0, 0.03);
+
+  --text: #1d1d1f;
+  --text-secondary: #6e6e73;
+  --text-tertiary: #aeaeb2;
+
+  --amber: #e8860c;
+  --amber-light: #fff4e6;
+  --amber-dark: #c26a00;
+  --orange: #d44a1a;
+  --orange-light: #fff0eb;
+  --gold: #f5b731;
+  --gold-light: #fffaed;
+
+  --green: #34c759;
+  --green-light: #e8fae8;
+  --purple: #af52de;
+  --purple-light: #f5eefa;
+
+  --sidebar-bg: #1c1c1e;
+
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.04), 0 1px 2px rgba(0, 0, 0, 0.02);
+  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.06), 0 1px 4px rgba(0, 0, 0, 0.03);
+  --shadow-lg: 0 12px 40px rgba(0, 0, 0, 0.08), 0 4px 12px rgba(0, 0, 0, 0.04);
+  --shadow-glow: 0 0 30px rgba(232, 134, 12, 0.15);
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-hover: var(--surface-hover);
+  --color-text: var(--text);
+  --color-text-secondary: var(--text-secondary);
+  --color-text-tertiary: var(--text-tertiary);
+  --color-amber: var(--amber);
+  --color-amber-light: var(--amber-light);
+  --color-amber-dark: var(--amber-dark);
+  --color-orange: var(--orange);
+  --color-orange-light: var(--orange-light);
+  --color-gold: var(--gold);
+  --color-gold-light: var(--gold-light);
+  --color-green: var(--green);
+  --color-green-light: var(--green-light);
+  --color-purple: var(--purple);
+  --color-purple-light: var(--purple-light);
+  --color-sidebar-bg: var(--sidebar-bg);
+
+  --font-sans: var(--font-jakarta);
+  --font-serif: var(--font-instrument-serif);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+html {
+  scroll-behavior: smooth;
+  scroll-padding-top: 88px; /* sticky header height + breathing room */
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-jakarta), -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+/* ─── Landing-page responsive grids (≥768px) ─── */
+.landing-grid-2 {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 24px;
+}
+.landing-grid-3 {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 24px;
+}
+.landing-grid-6 {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 20px;
+}
+.landing-grid-4 {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 24px;
+}
+.landing-nav-links { display: none; }
+.landing-header-signin { display: none; }
+@media (min-width: 480px) {
+  .landing-header-signin { display: inline-block; }
+}
+.landing-hero-h1 { font-size: 40px; line-height: 1.1; letter-spacing: -1.5px; }
+.landing-section-h2 { font-size: 32px; line-height: 1.15; letter-spacing: -1px; }
+@media (min-width: 768px) {
+  .landing-grid-2 { grid-template-columns: repeat(2, 1fr); }
+  .landing-grid-3 { grid-template-columns: repeat(3, 1fr); }
+  .landing-grid-6 { grid-template-columns: repeat(2, 1fr); }
+  .landing-grid-4 { grid-template-columns: repeat(2, 1fr); }
+  .landing-nav-links { display: flex; }
+  .landing-hero-h1 { font-size: 64px; letter-spacing: -2.5px; }
+  .landing-section-h2 { font-size: 44px; letter-spacing: -1.5px; }
+}
+@media (min-width: 1024px) {
+  .landing-grid-6 { grid-template-columns: repeat(3, 1fr); }
+  .landing-grid-4 { grid-template-columns: repeat(4, 1fr); }
+  .landing-hero-h1 { font-size: 72px; }
+}
+
+.footer-grid { grid-template-columns: 1fr !important; }
+@media (min-width: 640px) {
+  .footer-grid { grid-template-columns: 1fr 1fr !important; }
+}
+@media (min-width: 1024px) {
+  .footer-grid { grid-template-columns: 1.4fr repeat(4, 1fr) !important; }
+}
+
+.footer-link {
+  color: rgba(255, 255, 255, 0.7);
+  transition: color 0.15s;
+}
+.footer-link:hover {
+  color: #fff;
+}
+
+/* Dashboard body — 1fr + 380px sidebar on desktop, stacked on mobile. */
+.dashboard-body-grid { grid-template-columns: 1fr; }
+@media (min-width: 900px) {
+  .dashboard-body-grid { grid-template-columns: 1fr 380px; }
+}
+
+/* Auth shell — single column on mobile (form only), two columns on desktop. */
+.auth-shell-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+}
+.auth-hero { display: none; }
+@media (min-width: 900px) {
+  .auth-shell-grid { grid-template-columns: 480px 1fr; }
+  .auth-hero { display: flex; }
+}
+
+/* Onboarding strip — the trailing "Back to dashboard" button is the
+   only navigation affordance on the bar, so it stays visible at every
+   width. Add a hover lift so the button reads as clickable on dark. */
+.onboarding-bar-cta:hover {
+  background-color: rgba(255, 255, 255, 0.16) !important;
+  border-color: rgba(255, 255, 255, 0.28) !important;
+}
+
+/* ─── Authenticated-shell responsive utilities ─── */
+/* Hamburger trigger lives in the TopBar — visible <768px only. */
+.topbar-hamburger { display: inline-flex; }
+.topbar-search-pill { display: none; }
+.topbar-search-icon { display: inline-flex; }
+.topbar-subtitle { display: none; }
+@media (min-width: 768px) {
+  .topbar-hamburger { display: none; }
+  .topbar-search-pill { display: flex; }
+  .topbar-search-icon { display: none; }
+  .topbar-subtitle { display: block; }
+}
+
+/* Horizontal-scroll wrapper for app data tables. The table itself can
+   keep its desired min-width; this wrapper just guarantees no layout
+   blowout on narrow viewports. */
+.app-scroll-x {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  /* Add a hairline gradient on the right edge as an affordance that
+     content extends beyond the viewport. */
+  mask-image: linear-gradient(
+    to right,
+    black 0%,
+    black calc(100% - 24px),
+    rgba(0, 0, 0, 0.6) 100%
+  );
+}
+@media (min-width: 768px) {
+  .app-scroll-x { mask-image: none; }
+}
+
+/* Landing-page section padding — tighter on mobile.
+   Applies to any direct <section> child of <main> on the landing page.
+   We avoid a class-based selector because each section already inlines
+   its own padding; this utility-class adds a mobile-only adjustment
+   when applied. Currently used only as needed; spacing inside sections
+   uses clamp() inline. */
+
+/* Mobile tightening for stacked card lists used inside Cohort / Two
+   Paths / Features card grids — at 375px we want a hair less padding
+   so headlines don't wrap. */
+@media (max-width: 480px) {
+  .landing-grid-4 > div,
+  .landing-grid-6 > div { padding: 22px !important; }
+  .landing-grid-2 > div { padding: 24px !important; }
+}
+
+/* ─── Landing-page texture utilities ─── */
+/* Subtle dot grid for dark hero / dark section backgrounds. */
+.landing-dot-pattern {
+  background-image: radial-gradient(
+    rgba(255, 255, 255, 0.06) 1px,
+    transparent 1px
+  );
+  background-size: 26px 26px;
+}
+/* Slightly stronger on the hero — uses a finer grid + amber-tinted dots. */
+.landing-dot-pattern-amber {
+  background-image: radial-gradient(
+    rgba(245, 183, 49, 0.10) 1px,
+    transparent 1px
+  );
+  background-size: 22px 22px;
+}
+/* Light-surface variant for sections that want subtle texture without darkness. */
+.landing-dot-pattern-light {
+  background-image: radial-gradient(
+    rgba(232, 134, 12, 0.08) 1px,
+    transparent 1px
+  );
+  background-size: 24px 24px;
+}
+/* Amber gradient hairline — used as section dividers / accent rules. */
+.landing-amber-rule {
+  height: 2px;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(232, 134, 12, 0.6) 20%,
+    rgba(212, 74, 26, 0.6) 80%,
+    transparent 100%
+  );
+}
+
+.campaign-row {
+  transition: background-color 0.15s;
+}
+.campaign-row:hover {
+  background-color: var(--surface-hover);
+}
+
+/* ─── Prose styles for legal pages (terms, privacy) ─── */
+.prose {
+  max-width: 760px;
+  margin: 0 auto;
+  font-size: 16px;
+  line-height: 1.75;
+  color: var(--text);
+}
+.prose h1 {
+  font-family: var(--font-instrument-serif), Georgia, serif;
+  font-size: 44px;
+  font-weight: 400;
+  letter-spacing: -1.5px;
+  line-height: 1.1;
+  margin: 0 0 24px;
+}
+.prose h2 {
+  font-family: var(--font-instrument-serif), Georgia, serif;
+  font-size: 28px;
+  font-weight: 400;
+  letter-spacing: -0.5px;
+  margin: 48px 0 16px;
+  line-height: 1.2;
+}
+.prose h3 {
+  font-size: 18px;
+  font-weight: 700;
+  margin: 32px 0 12px;
+  color: var(--text);
+}
+.prose p {
+  margin: 0 0 18px;
+  color: var(--text-secondary);
+}
+.prose ul,
+.prose ol {
+  margin: 0 0 18px;
+  padding-left: 24px;
+  color: var(--text-secondary);
+}
+.prose li {
+  margin: 6px 0;
+}
+.prose li::marker {
+  color: var(--text-tertiary);
+}
+.prose strong {
+  color: var(--text);
+  font-weight: 700;
+}
+.prose em {
+  color: var(--text-tertiary);
+  font-style: italic;
+  display: inline-block;
+  font-size: 14px;
+  margin-bottom: 8px;
+}
+.prose a {
+  color: var(--amber-dark);
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+}
+.prose a:hover {
+  color: var(--amber);
+}
+.prose hr {
+  border: none;
+  border-top: 1px solid var(--border);
+  margin: 32px 0;
+}
+.prose table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 16px 0 24px;
+  font-size: 14px;
+}
+.prose th,
+.prose td {
+  padding: 12px 14px;
+  text-align: left;
+  border-bottom: 1px solid var(--border-subtle);
+}
+.prose th {
+  font-weight: 700;
+  color: var(--text);
+  background: var(--surface-hover);
+}
+.prose td {
+  color: var(--text-secondary);
+}
+.prose code {
+  background: var(--surface-hover);
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
+  font-size: 0.9em;
+  color: var(--text);
+}
+
+/* Brand-coloured focus ring on form fields */
+input:focus,
+textarea:focus,
+select:focus {
+  border-color: var(--amber) !important;
+  box-shadow: 0 0 0 4px rgba(232, 134, 12, 0.1) !important;
+}
+
+::selection {
+  background: rgba(232, 134, 12, 0.15);
+}
+
+/* Loading spinner used by lucide LoaderIcon */
+.spin {
+  animation: spin 1s linear infinite;
+}
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.pulse {
+  animation: pulse 1.5s ease-in-out infinite;
+}
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+/* Celebrate page sparkle particles. Rise from the bottom, fade in
+   over the first quarter of the loop, drift up + sideways, and fade
+   out as they exit the top. Pure CSS — no canvas-confetti dep. */
+.celebrate-sparkle {
+  animation-name: celebrate-sparkle;
+  animation-timing-function: ease-out;
+  animation-iteration-count: infinite;
+  will-change: transform, opacity;
+}
+@keyframes celebrate-sparkle {
+  0% {
+    transform: translateY(0) translateX(0) rotate(0deg);
+    opacity: 0;
+  }
+  10% {
+    opacity: 1;
+  }
+  90% {
+    opacity: 0.8;
+  }
+  100% {
+    transform: translateY(-110vh) translateX(40px) rotate(360deg);
+    opacity: 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .celebrate-sparkle {
+    animation: none;
+    opacity: 0;
+  }
+}
+
+/* Onboarding "Send from DonorLume" attention pulse.
+   Fires on the first unsent draft only, while `?onboarding=1` is in
+   effect. Pulse rings out via a stacked box-shadow on the button — no
+   layout shift, no reflow churn. */
+.send-from-donorlume-pulse {
+  position: relative;
+  animation: send-button-pulse 1.7s ease-in-out infinite;
+}
+@keyframes send-button-pulse {
+  0%,
+  100% {
+    box-shadow:
+      0 0 0 0 rgba(232, 134, 12, 0.55),
+      0 8px 18px rgba(232, 134, 12, 0.32);
+  }
+  50% {
+    box-shadow:
+      0 0 0 12px rgba(232, 134, 12, 0),
+      0 10px 22px rgba(212, 74, 26, 0.34);
+  }
+}
+
+/* Gentle vertical bob on the "Click here to send your first email"
+   callout so the arrow feels alive without flailing. */
+.send-callout-bob {
+  animation: send-callout-bob 1.7s ease-in-out infinite;
+}
+@keyframes send-callout-bob {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-4px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .send-from-donorlume-pulse {
+    animation: none;
+    box-shadow: 0 0 0 4px rgba(232, 134, 12, 0.45);
+  }
+  .send-callout-bob {
+    animation: none;
+  }
+}
+
+/* Signup "Setting up your workspace…" transition.
+   Slow gentle pulse on the starburst — scale + amber drop-shadow so it
+   feels like the brand mark is breathing while the org gets spun up. */
+.signup-creating-pulse {
+  display: inline-block;
+  animation: signup-creating-pulse 1.6s ease-in-out infinite;
+  will-change: transform, filter;
+}
+@keyframes signup-creating-pulse {
+  0%,
+  100% {
+    transform: scale(1);
+    filter: drop-shadow(0 0 22px rgba(232, 134, 12, 0.4))
+      drop-shadow(0 0 44px rgba(212, 74, 26, 0.18));
+  }
+  50% {
+    transform: scale(1.06);
+    filter: drop-shadow(0 0 30px rgba(245, 183, 49, 0.6))
+      drop-shadow(0 0 56px rgba(232, 134, 12, 0.3));
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .signup-creating-pulse {
+    animation: none;
+    filter: drop-shadow(0 0 26px rgba(232, 134, 12, 0.5));
+  }
+}
+
+/* Onboarding toast — slides up + fades in from the bottom-right corner. */
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Ask DonorLume chat indicators */
+@keyframes help-dot-bounce {
+  0%,
+  60%,
+  100% {
+    transform: translateY(0);
+    opacity: 0.45;
+  }
+  30% {
+    transform: translateY(-4px);
+    opacity: 1;
+  }
+}
+@keyframes help-caret-blink {
+  0%,
+  50% {
+    opacity: 1;
+  }
+  51%,
+  100% {
+    opacity: 0;
+  }
+}
+
+/* "Choose Your Path" landing cards — equally prominent at rest, lift +
+   amber border + amber glow on hover. No JS needed since both states
+   are pure CSS. */
+.choose-path-card {
+  transition:
+    border-color 0.2s,
+    box-shadow 0.2s,
+    transform 0.2s;
+}
+.choose-path-card:hover {
+  border-color: #e8860c !important;
+  box-shadow:
+    0 18px 44px rgba(232, 134, 12, 0.20),
+    0 6px 16px rgba(212, 74, 26, 0.12) !important;
+  transform: translateY(-3px);
+}
+
+/* ─── Landing hero — starburst beacon ─── */
+/*
+ * Three layered halo rings pulse at slightly different rhythms behind
+ * the starburst (4s / 4.5s / 5s). Different durations = an organic,
+ * candle-like flicker — they never peak simultaneously. The starburst
+ * itself pulses its drop-shadow filter at a fourth rhythm (3.5s) so
+ * the light source feels alive against the still rays.
+ *
+ * Each halo's transform: translate(-50%, -50%) re-establishes the
+ * centering that the scale animation would otherwise nuke.
+ */
+.hero-starburst-stage {
+  position: relative;
+  display: inline-block;
+  line-height: 0;
+}
+.hero-halo {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: 0;
+  will-change: transform, opacity;
+}
+.hero-halo-1 {
+  width: 300px;
+  height: 300px;
+  background: radial-gradient(
+    circle,
+    rgba(245, 183, 49, 0.55) 0%,
+    rgba(245, 183, 49, 0.18) 35%,
+    transparent 65%
+  );
+  filter: blur(6px);
+  animation: hero-halo-1-pulse 4s ease-in-out infinite;
+}
+.hero-halo-2 {
+  width: 560px;
+  height: 560px;
+  background: radial-gradient(
+    circle,
+    rgba(232, 134, 12, 0.32) 0%,
+    rgba(232, 134, 12, 0.10) 40%,
+    transparent 70%
+  );
+  filter: blur(12px);
+  animation: hero-halo-2-pulse 4.5s ease-in-out infinite;
+}
+.hero-halo-3 {
+  width: 900px;
+  height: 900px;
+  background: radial-gradient(
+    circle,
+    rgba(212, 74, 26, 0.14) 0%,
+    rgba(212, 74, 26, 0.06) 35%,
+    transparent 65%
+  );
+  filter: blur(20px);
+  animation: hero-halo-3-pulse 5s ease-in-out infinite;
+}
+.hero-starburst-figure {
+  position: relative;
+  z-index: 1;
+  animation: hero-starburst-pulse 3.5s ease-in-out infinite;
+}
+@keyframes hero-halo-1-pulse {
+  0%,
+  100% {
+    transform: translate(-50%, -50%) scale(1);
+    opacity: 0.92;
+  }
+  50% {
+    transform: translate(-50%, -50%) scale(1.1);
+    opacity: 1;
+  }
+}
+@keyframes hero-halo-2-pulse {
+  0%,
+  100% {
+    transform: translate(-50%, -50%) scale(1);
+    opacity: 0.85;
+  }
+  50% {
+    transform: translate(-50%, -50%) scale(1.06);
+    opacity: 0.98;
+  }
+}
+@keyframes hero-halo-3-pulse {
+  0%,
+  100% {
+    transform: translate(-50%, -50%) scale(1);
+    opacity: 0.75;
+  }
+  50% {
+    transform: translate(-50%, -50%) scale(1.04);
+    opacity: 0.9;
+  }
+}
+@keyframes hero-starburst-pulse {
+  0%,
+  100% {
+    filter: drop-shadow(0 0 18px rgba(245, 183, 49, 0.55))
+      drop-shadow(0 0 36px rgba(232, 134, 12, 0.32));
+  }
+  50% {
+    filter: drop-shadow(0 0 26px rgba(245, 183, 49, 0.78))
+      drop-shadow(0 0 52px rgba(232, 134, 12, 0.45));
+  }
+}
+/* Respect users who've asked the OS to reduce motion. The starburst
+   still glows (static drop-shadow), but stops breathing. */
+@media (prefers-reduced-motion: reduce) {
+  .hero-halo,
+  .hero-starburst-figure {
+    animation: none !important;
+  }
+  .hero-starburst-figure {
+    filter: drop-shadow(0 0 22px rgba(245, 183, 49, 0.65))
+      drop-shadow(0 0 44px rgba(232, 134, 12, 0.38));
+  }
+}
+
+/* ─── Auth-shell hero halo overrides ────────────────────────────────
+ * The dark right panel of /login + /signup reuses the .hero-halo-*
+ * stack from the landing page beacon, but slightly dimmer (~22% less
+ * opacity) so it reads as "warm and inviting" rather than "blinding".
+ * Scoped to `.auth-hero` so the landing page hero is unaffected.
+ */
+.auth-hero .hero-halo-1 {
+  background: radial-gradient(
+    circle,
+    rgba(245, 183, 49, 0.43) 0%,
+    rgba(245, 183, 49, 0.14) 35%,
+    transparent 65%
+  );
+}
+.auth-hero .hero-halo-2 {
+  background: radial-gradient(
+    circle,
+    rgba(232, 134, 12, 0.25) 0%,
+    rgba(232, 134, 12, 0.08) 40%,
+    transparent 70%
+  );
+}
+.auth-hero .hero-halo-3 {
+  background: radial-gradient(
+    circle,
+    rgba(212, 74, 26, 0.11) 0%,
+    rgba(212, 74, 26, 0.05) 35%,
+    transparent 65%
+  );
+}
+
+/* ─── Auth beacon ──────────────────────────────────────────────────
+ * Smaller cousin of the landing hero beacon, scaled for the auth form
+ * panel. The user's first impression of DonorLume is /login or /signup
+ * — "Lume" = light — so the starburst HAS to feel like a real light
+ * source illuminating the page, not a thumbnail.
+ *
+ * Three stacked halos at brand-palette intensities:
+ *   • halo-1 (240px, tight bright amber)      — the hot core glow
+ *   • halo-2 (440px, soft orange middle)      — the body of the light
+ *   • halo-3 (700px, subtle warm tint outer)  — the ambient reach
+ *
+ * Each pulses at a slightly different rhythm (4s / 4.5s / 5s) so the
+ * combined effect breathes irregularly — same trick as the landing
+ * hero. The starburst figure itself pulses its drop-shadow at 3.5s.
+ * Halo widths are 20-25% smaller than the landing hero versions so
+ * they fit the constrained form panel without overpowering the form.
+ */
+.auth-starburst-stage {
+  position: relative;
+  display: inline-block;
+  line-height: 0;
+}
+.auth-halo {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: 0;
+  will-change: transform, opacity;
+}
+/* Halo opacities deliberately ~40% dimmer than .hero-halo-* so the
+   form-panel beacon reads as a quiet brand accent — the dark hero
+   panel is the page's star, and this one shouldn't compete. */
+.auth-halo-1 {
+  width: 240px;
+  height: 240px;
+  background: radial-gradient(
+    circle,
+    rgba(245, 183, 49, 0.33) 0%,
+    rgba(245, 183, 49, 0.11) 35%,
+    transparent 65%
+  );
+  filter: blur(6px);
+  animation: auth-halo-1-pulse 4s ease-in-out infinite;
+}
+.auth-halo-2 {
+  width: 440px;
+  height: 440px;
+  background: radial-gradient(
+    circle,
+    rgba(232, 134, 12, 0.19) 0%,
+    rgba(232, 134, 12, 0.06) 40%,
+    transparent 70%
+  );
+  filter: blur(12px);
+  animation: auth-halo-2-pulse 4.5s ease-in-out infinite;
+}
+.auth-halo-3 {
+  width: 700px;
+  height: 700px;
+  background: radial-gradient(
+    circle,
+    rgba(212, 74, 26, 0.08) 0%,
+    rgba(212, 74, 26, 0.04) 35%,
+    transparent 65%
+  );
+  filter: blur(20px);
+  animation: auth-halo-3-pulse 5s ease-in-out infinite;
+}
+.auth-starburst-figure {
+  position: relative;
+  z-index: 1;
+  animation: auth-starburst-pulse 3.5s ease-in-out infinite;
+}
+@keyframes auth-halo-1-pulse {
+  0%,
+  100% {
+    transform: translate(-50%, -50%) scale(1);
+    opacity: 0.92;
+  }
+  50% {
+    transform: translate(-50%, -50%) scale(1.1);
+    opacity: 1;
+  }
+}
+@keyframes auth-halo-2-pulse {
+  0%,
+  100% {
+    transform: translate(-50%, -50%) scale(1);
+    opacity: 0.85;
+  }
+  50% {
+    transform: translate(-50%, -50%) scale(1.06);
+    opacity: 0.98;
+  }
+}
+@keyframes auth-halo-3-pulse {
+  0%,
+  100% {
+    transform: translate(-50%, -50%) scale(1);
+    opacity: 0.75;
+  }
+  50% {
+    transform: translate(-50%, -50%) scale(1.04);
+    opacity: 0.9;
+  }
+}
+@keyframes auth-starburst-pulse {
+  0%,
+  100% {
+    filter: drop-shadow(0 0 10px rgba(245, 183, 49, 0.33))
+      drop-shadow(0 0 22px rgba(232, 134, 12, 0.19));
+  }
+  50% {
+    filter: drop-shadow(0 0 14px rgba(245, 183, 49, 0.47))
+      drop-shadow(0 0 30px rgba(232, 134, 12, 0.27));
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .auth-halo,
+  .auth-starburst-figure {
+    animation: none !important;
+  }
+  .auth-starburst-figure {
+    filter: drop-shadow(0 0 12px rgba(245, 183, 49, 0.39))
+      drop-shadow(0 0 26px rgba(232, 134, 12, 0.23));
+  }
 }
