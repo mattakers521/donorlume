@@ -87,6 +87,14 @@ model User {
   // for new signups; nullable for grandfathered pre-acceptance accounts.
   termsAcceptedAt DateTime?
 
+  // Password-reset flow. The token is a 64-char hex string
+  // (crypto.randomBytes(32)); we store it directly because the lookup
+  // happens once at reset time. The unique index makes the lookup an
+  // O(1) hit; the expiry is checked server-side at /api/auth/reset-password
+  // and forces the user back through /forgot-password if it's expired.
+  resetToken           String?   @unique
+  resetTokenExpiresAt  DateTime?
+
   orgs            OrgUser[]
   outreachDrafts  OutreachDraft[]
   accounts        Account[]

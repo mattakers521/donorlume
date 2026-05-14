@@ -23,6 +23,10 @@ function LoginForm() {
   const params = useSearchParams();
   const callbackUrl = params.get("callbackUrl") ?? "/dashboard";
   const queryError = params.get("error");
+  // ?reset=success is the redirect target of /api/auth/reset-password
+  // — surface a confirmation banner so the user knows the new
+  // password is live.
+  const resetJustSucceeded = params.get("reset") === "success";
   // ?error=seats_exceeded comes from the NextAuth signIn callback when
   // the user's org has more members than its plan's seat cap allows.
   // Surface a specific message so the user knows whom to ask.
@@ -64,6 +68,54 @@ function LoginForm() {
       heading="Welcome back."
       subhead="Sign in to your donor intelligence dashboard."
     >
+      {resetJustSucceeded && (
+        <div
+          role="status"
+          style={{
+            display: "flex",
+            alignItems: "flex-start",
+            gap: 12,
+            padding: "14px 16px",
+            borderRadius: 14,
+            backgroundColor: C.greenLight,
+            border: `1px solid rgba(52,199,89,0.30)`,
+            marginBottom: 20,
+            fontFamily: "var(--font-jakarta), -apple-system, sans-serif",
+          }}
+        >
+          <span
+            aria-hidden
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              justifyContent: "center",
+              width: 22,
+              height: 22,
+              borderRadius: "50%",
+              backgroundColor: C.green,
+              color: "#fff",
+              fontSize: 14,
+              fontWeight: 900,
+              flexShrink: 0,
+              marginTop: 1,
+            }}
+          >
+            ✓
+          </span>
+          <div
+            style={{
+              fontSize: 14,
+              lineHeight: 1.55,
+              color: C.text,
+              fontWeight: 500,
+            }}
+          >
+            <strong>Password updated.</strong> Sign in below with your new
+            password.
+          </div>
+        </div>
+      )}
+
       {error && <ErrorBanner message={error} />}
 
       <form onSubmit={submit} noValidate>
@@ -76,16 +128,34 @@ function LoginForm() {
           onChange={setEmail}
           placeholder="you@yourorg.com"
         />
-        <div style={{ marginBottom: 24 }}>
-          <TextField
-            label="Password"
-            type="password"
-            autoComplete="current-password"
-            required
-            value={password}
-            onChange={setPassword}
-            placeholder="••••••••"
-          />
+        <TextField
+          label="Password"
+          type="password"
+          autoComplete="current-password"
+          required
+          value={password}
+          onChange={setPassword}
+          placeholder="••••••••"
+        />
+
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "flex-end",
+            margin: "-4px 0 24px",
+          }}
+        >
+          <Link
+            href="/forgot-password"
+            style={{
+              fontSize: 13,
+              color: C.amberDark,
+              fontWeight: 700,
+              textDecoration: "none",
+            }}
+          >
+            Forgot password?
+          </Link>
         </div>
 
         <PrimaryButton
