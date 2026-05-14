@@ -158,6 +158,9 @@ export const POST = withOrg(async (req, { auth }) => {
         totalDonors: scored.length,
         lapsedCount,
         processedAt: new Date(),
+        // Stamp the uploader so /donors can show "who uploaded this".
+        // SetNull cascade preserves the record even if the user leaves.
+        uploadedByUserId: auth.userId,
       },
     });
 

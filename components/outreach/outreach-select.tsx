@@ -2,7 +2,14 @@
 
 import { useMemo, useState } from "react";
 import type { CohortDefinition } from "@prisma/client";
-import { ChevronLeft, Plus, Sparkles, UserPlus, X } from "lucide-react";
+import {
+  ChevronLeft,
+  Plus,
+  Sparkles,
+  UserCheck,
+  UserPlus,
+  X,
+} from "lucide-react";
 
 import { C, brandGradient, inputStyle, shadow } from "@/lib/design";
 import { fmt } from "@/lib/format";
@@ -31,6 +38,11 @@ type Props = {
   }) => void;
   onBack: () => void;
   onGenerate: () => void;
+  /** Drives "Claimed by you" vs "Claimed by Sarah" badge labels and
+   *  the default-on "hide donors claimed by others" filter — so a
+   *  team member doesn't accidentally email someone a teammate is
+   *  personally cultivating. */
+  currentUserId: string;
 };
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -47,23 +59,46 @@ export function OutreachSelect({
   onAddManualContact,
   onBack,
   onGenerate,
+  currentUserId,
 }: Props) {
-  // Apply cohort filter to real donors only. Samples always pass — they're
-  // there so first-time users can still preview the flow.
+  // Default ON: never show donors another team member claimed unless
+  // the user explicitly toggles them back in. Prevents the most common
+  // collision (two fundraisers emailing the same major donor).
+  const [hideClaimedByOthers, setHideClaimedByOthers] = useState(true);
+
+  // Apply cohort filter (real donors only — samples always pass) then
+  // the claim filter. Both rules let samples + manual contacts through;
+  // they have no provenance and don't trigger the same collision risk.
   const visibleDonors = useMemo(() => {
-    if (cohortFilter.size === 0) return donors;
-    return donors.filter((d) => {
-      if (!d.isReal) return true;
-      const donorCohortIds = new Set(d.cohorts.map((c) => c.id));
-      for (const wanted of cohortFilter) {
-        if (!donorCohortIds.has(wanted)) return false;
-      }
-      return true;
-    });
-  }, [donors, cohortFilter]);
+    let rows = donors;
+
+    if (cohortFilter.size > 0) {
+      rows = rows.filter((d) => {
+        if (!d.isReal) return true;
+        const donorCohortIds = new Set(d.cohorts.map((c) => c.id));
+        for (const wanted of cohortFilter) {
+          if (!donorCohortIds.has(wanted)) return false;
+        }
+        return true;
+      });
+    }
+
+    if (hideClaimedByOthers) {
+      rows = rows.filter((d) => {
+        // Drop only "claimed by SOMEONE ELSE". The current user's own
+        // claims (and unclaimed donors) stay visible.
+        return !d.claimedBy || d.claimedBy.id === currentUserId;
+      });
+    }
+
+    return rows;
+  }, [donors, cohortFilter, hideClaimedByOthers, currentUserId]);
 
   const realCount = donors.filter((d) => d.isReal).length;
   const filteredRealCount = visibleDonors.filter((d) => d.isReal).length;
+  const claimedByOthersHiddenCount = donors.filter(
+    (d) => d.claimedBy && d.claimedBy.id !== currentUserId,
+  ).length;
 
   return (
     <div style={{ maxWidth: 900 }}>
@@ -117,6 +152,67 @@ export function OutreachSelect({
           onToggle={onToggleCohort}
           onClear={onClearCohorts}
         />
+      )}
+
+      {/* Hide-claimed toggle. Only renders when at least one donor is
+          actually claimed by someone other than the current user —
+          otherwise it's just visual noise with no effect. */}
+      {claimedByOthersHiddenCount > 0 && (
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 12,
+            flexWrap: "wrap",
+            backgroundColor: C.surface,
+            borderRadius: 14,
+            boxShadow: shadow.sm,
+            padding: "12px 16px",
+            marginBottom: 16,
+          }}
+        >
+          <label
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 10,
+              cursor: "pointer",
+              userSelect: "none",
+              fontFamily: "var(--font-jakarta), -apple-system, sans-serif",
+            }}
+          >
+            <input
+              type="checkbox"
+              checked={hideClaimedByOthers}
+              onChange={(e) => setHideClaimedByOthers(e.target.checked)}
+              style={{
+                width: 16,
+                height: 16,
+                accentColor: C.amber,
+                cursor: "pointer",
+              }}
+            />
+            <UserCheck size={15} color={C.amberDark} strokeWidth={2.4} />
+            <span
+              style={{
+                fontSize: 13.5,
+                fontWeight: 700,
+                color: C.text,
+              }}
+            >
+              Hide donors claimed by others
+            </span>
+            <span
+              style={{
+                fontSize: 12,
+                fontWeight: 600,
+                color: C.textSecondary,
+              }}
+            >
+              ({claimedByOthersHiddenCount} hidden when on)
+            </span>
+          </label>
+        </div>
       )}
 
       <AddContactPanel onAdd={onAddManualContact} />
@@ -235,6 +331,12 @@ export function OutreachSelect({
                       >
                         {d.isManual ? "New" : "Sample"}
                       </span>
+                    )}
+                    {d.claimedBy && (
+                      <ClaimedBadge
+                        claimedBy={d.claimedBy}
+                        isMine={d.claimedBy.id === currentUserId}
+                      />
                     )}
                   </div>
                   <div
@@ -572,6 +674,50 @@ function FieldLabel({ children }: { children: string }) {
     >
       {children}
     </label>
+  );
+}
+
+/**
+ * Compact "Claimed by X" / "Claimed by you" badge surfaced inline with
+ * the donor name on the outreach selection screen. Read-only — the
+ * claim/release affordance lives on /donors and /lapsed where the
+ * claim actually matters.
+ */
+function ClaimedBadge({
+  claimedBy,
+  isMine,
+}: {
+  claimedBy: { name: string | null; email: string };
+  isMine: boolean;
+}) {
+  const displayName =
+    claimedBy.name?.trim() || claimedBy.email.split("@")[0];
+  return (
+    <span
+      style={{
+        display: "inline-flex",
+        alignItems: "center",
+        gap: 4,
+        padding: "3px 8px",
+        borderRadius: 6,
+        fontSize: 11,
+        fontWeight: 700,
+        backgroundColor: isMine ? C.amberLight : "#F2F2F7",
+        color: isMine ? C.amberDark : C.textSecondary,
+        border: isMine
+          ? `1px solid rgba(232,134,12,0.25)`
+          : `1px solid ${C.border}`,
+        whiteSpace: "nowrap",
+      }}
+      title={
+        isMine
+          ? "You claimed this donor"
+          : `Claimed by ${displayName} — turn off "Hide claimed by others" to include`
+      }
+    >
+      <UserCheck size={11} strokeWidth={2.4} />
+      {isMine ? "Claimed by you" : `Claimed by ${displayName}`}
+    </span>
   );
 }
 

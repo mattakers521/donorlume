@@ -65,6 +65,57 @@ export default async function CampaignReportPage({
   const breakdown = cohortBreakdown(campaign.drafts);
   const hasRealDonors = campaign.drafts.some((d) => d.donor != null);
 
+  // ─── Campaign overlap lookup ───────────────────────────────────────
+  // For every real donor in this campaign, find any OTHER campaign
+  // they appear in. Surfaces "this donor is also being targeted by
+  // Year-End Appeal + Gala Follow-Up" — critical for the campaign
+  // manager to avoid over-communicating.
+  //
+  // One round trip: fetch every draft for these donor IDs across the
+  // org, then group by donor → campaign list (excluding self).
+  const donorIdsInCampaign = campaign.drafts
+    .map((d) => d.donorId)
+    .filter((id): id is string => !!id);
+
+  const overlapByDonorId = new Map<
+    string,
+    { id: string; name: string; createdAt: Date }[]
+  >();
+
+  if (donorIdsInCampaign.length > 0) {
+    const otherDrafts = await prisma.outreachDraft.findMany({
+      where: {
+        donorId: { in: donorIdsInCampaign },
+        campaignId: { not: campaign.id },
+        // Multi-tenant safety: pin to the org via the campaign join.
+        campaign: { orgId: org.id },
+      },
+      select: {
+        donorId: true,
+        campaign: {
+          select: { id: true, name: true, createdAt: true },
+        },
+      },
+    });
+
+    for (const od of otherDrafts) {
+      if (!od.donorId) continue;
+      const list = overlapByDonorId.get(od.donorId) ?? [];
+      // De-dup: a donor could appear in the same other campaign twice
+      // (e.g. resend). Show each campaign once.
+      if (!list.some((c) => c.id === od.campaign.id)) {
+        list.push(od.campaign);
+        overlapByDonorId.set(od.donorId, list);
+      }
+    }
+
+    // Sort each donor's overlap list newest-first.
+    for (const [k, list] of overlapByDonorId) {
+      list.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+      overlapByDonorId.set(k, list);
+    }
+  }
+
   const tableRows: CampaignDraftRow[] = campaign.drafts.map((d) => ({
     id: d.id,
     recipientName: d.recipientName,
@@ -87,6 +138,12 @@ export default async function CampaignReportPage({
         name: dc.cohort.name,
         color: dc.cohort.color ?? C.amber,
       })) ?? [],
+    otherCampaigns: d.donorId
+      ? (overlapByDonorId.get(d.donorId) ?? []).map((c) => ({
+          id: c.id,
+          name: c.name,
+        }))
+      : [],
   }));
 
   const subtitle = [

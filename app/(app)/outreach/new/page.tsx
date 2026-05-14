@@ -12,6 +12,7 @@ export const dynamic = "force-dynamic";
 
 type RealDonorWithCohorts = Donor & {
   cohorts: (DonorCohort & { cohort: CohortDefinition })[];
+  claimedBy: { id: string; name: string | null; email: string } | null;
 };
 
 export default async function OutreachPage({
@@ -24,7 +25,7 @@ export default async function OutreachPage({
   }>;
 }) {
   console.log("[server-trace] OUTREACH NEW PAGE entry (before getOrgContext)");
-  const { org, user } = await getOrgContext();
+  const { org, user, userId } = await getOrgContext();
   console.log(
     `[server-trace] OUTREACH NEW PAGE: getOrgContext OK org=${org.id} user=${user.id}`,
   );
@@ -49,7 +50,10 @@ export default async function OutreachPage({
             id: { in: donorIds },
             donorList: { orgId: org.id },
           },
-          include: { cohorts: { include: { cohort: true } } },
+          include: {
+            cohorts: { include: { cohort: true } },
+            claimedBy: { select: { id: true, name: true, email: true } },
+          },
         })
       : Promise.resolve<RealDonorWithCohorts[]>([]),
     params.cohort
@@ -62,7 +66,10 @@ export default async function OutreachPage({
               },
             },
           },
-          include: { cohorts: { include: { cohort: true } } },
+          include: {
+            cohorts: { include: { cohort: true } },
+            claimedBy: { select: { id: true, name: true, email: true } },
+          },
         })
       : Promise.resolve<RealDonorWithCohorts[]>([]),
   ]);
@@ -91,6 +98,7 @@ export default async function OutreachPage({
       name: dc.cohort.name,
       color: dc.cohort.color ?? "#E8860C",
     })),
+    claimedBy: d.claimedBy,
   }));
 
   const sampleDonorsForClient = SAMPLE_DONORS.map((s) => ({
@@ -114,6 +122,12 @@ export default async function OutreachPage({
       cohorts: [],
     } satisfies DonorContext,
     cohorts: [] as { id: string; name: string; color: string }[],
+    // Samples + manual contacts have no claim provenance — always null.
+    claimedBy: null as {
+      id: string;
+      name: string | null;
+      email: string;
+    } | null,
   }));
 
   // If the user arrived via ?cohort=slug, pre-apply that cohort filter
@@ -151,6 +165,7 @@ export default async function OutreachPage({
         cohorts={allCohorts}
         initialCohortFilterId={initialCohortFilterId}
         onboardingActive={onboardingActive}
+        currentUserId={userId}
       />
     </>
   );

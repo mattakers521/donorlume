@@ -2,12 +2,14 @@
 
 import { Fragment, useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import {
   AlertTriangle,
   CheckCircle2,
   ChevronDown,
   Clock,
   Eye,
+  Layers,
   Loader as LoaderIcon,
   Mail,
   MessageSquare,
@@ -35,6 +37,13 @@ export type CampaignDraftRow = {
   bounceReason: string | null;
   repliedAt: string | null;
   cohorts: { id: string; name: string; color: string }[];
+  /**
+   * Other campaigns this donor is also included in (excluding the
+   * current one). Newest-first. Drives the "Also in: X, Y" badge so
+   * campaign managers can spot over-communication without leaving
+   * the report.
+   */
+  otherCampaigns: { id: string; name: string }[];
 };
 
 type Props = {
@@ -216,6 +225,11 @@ export function CampaignDraftTable({ drafts }: Props) {
                           <CohortOverflow count={overflow} />
                         )}
                       </div>
+                    )}
+                    {d.otherCampaigns.length > 0 && (
+                      <OverlapBadge
+                        otherCampaigns={d.otherCampaigns}
+                      />
                     )}
                   </td>
                   <td
@@ -515,6 +529,105 @@ function Pill({
       {icon}
       {label}
     </span>
+  );
+}
+
+/**
+ * "Also in: Campaign A, Campaign B" overlap signal. Surfaced under
+ * each draft row so a campaign manager can spot donors caught in
+ * multiple campaigns simultaneously — the over-communication
+ * warning. Each name is a Link to that other campaign's report so
+ * the manager can investigate in one click.
+ *
+ * Compact form: shows up to two names inline, then "+N more" for the
+ * rest (full list available via tooltip on the chip). Click on the
+ * chip itself stops propagation so it doesn't toggle the row expand.
+ */
+function OverlapBadge({
+  otherCampaigns,
+}: {
+  otherCampaigns: { id: string; name: string }[];
+}) {
+  if (otherCampaigns.length === 0) return null;
+  const visible = otherCampaigns.slice(0, 2);
+  const overflow = otherCampaigns.length - visible.length;
+  const allNames = otherCampaigns.map((c) => c.name).join(", ");
+
+  return (
+    <div
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: 6,
+        marginTop: 7,
+        flexWrap: "wrap",
+        fontSize: 11.5,
+        fontFamily: "var(--font-jakarta), -apple-system, sans-serif",
+      }}
+      onClick={(e) => e.stopPropagation()}
+    >
+      <span
+        title={`This donor is also in: ${allNames}`}
+        style={{
+          display: "inline-flex",
+          alignItems: "center",
+          gap: 4,
+          padding: "3px 8px",
+          borderRadius: 6,
+          fontSize: 11,
+          fontWeight: 800,
+          backgroundColor: C.purpleLight,
+          color: C.purple,
+          textTransform: "uppercase",
+          letterSpacing: 0.5,
+        }}
+      >
+        <Layers size={11} strokeWidth={2.4} />
+        Also in
+      </span>
+      {visible.map((c, i) => (
+        <span
+          key={c.id}
+          style={{ display: "inline-flex", alignItems: "center", gap: 4 }}
+        >
+          <Link
+            href={`/outreach/campaigns/${c.id}`}
+            style={{
+              fontSize: 12,
+              fontWeight: 700,
+              color: C.text,
+              textDecoration: "none",
+              borderBottom: `1px dashed ${C.textTertiary}`,
+              maxWidth: 200,
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              whiteSpace: "nowrap",
+            }}
+            title={c.name}
+          >
+            {c.name}
+          </Link>
+          {i < visible.length - 1 && (
+            <span style={{ color: C.textTertiary }}>·</span>
+          )}
+        </span>
+      ))}
+      {overflow > 0 && (
+        <span
+          title={allNames}
+          style={{
+            fontSize: 11,
+            fontWeight: 700,
+            color: C.textTertiary,
+            padding: "3px 6px",
+            borderRadius: 6,
+            backgroundColor: "#F2F2F7",
+          }}
+        >
+          +{overflow} more
+        </span>
+      )}
+    </div>
   );
 }
 

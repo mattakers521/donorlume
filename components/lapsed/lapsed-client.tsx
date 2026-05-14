@@ -17,6 +17,7 @@ import { useToast } from "@/components/toast/toast-provider";
 /** Donor row with its cohort assignments + the joined CohortDefinition. */
 export type DonorWithCohorts = Donor & {
   cohorts: (DonorCohort & { cohort: CohortDefinition })[];
+  claimedBy: { id: string; name: string | null; email: string } | null;
 };
 
 type Props = {
@@ -25,12 +26,16 @@ type Props = {
   lapsedThresholdMonths: number;
   /** Every cohort definition for this org — drives the filter bar. */
   cohorts: CohortDefinition[];
+  currentUser: { id: string; name: string | null; email: string };
+  orgRole: "OWNER" | "ADMIN" | "MEMBER" | "VIEWER";
 };
 
 export function LapsedClient({
   initialList,
   lapsedThresholdMonths,
   cohorts: initialCohorts,
+  currentUser,
+  orgRole,
 }: Props) {
   const router = useRouter();
   const { toast } = useToast();
@@ -149,6 +154,25 @@ export function LapsedClient({
       thresholdMonths={threshold}
       onThresholdChange={changeThreshold}
       onNewUpload={newUpload}
+      currentUser={currentUser}
+      orgRole={orgRole}
+      onClaimUpdate={(donorId, next) => {
+        // Optimistically patch the local donor list so the row's claim
+        // pill flips immediately. Server-side refresh still happens via
+        // ClaimButton's internal router.refresh().
+        setDonors((prev) =>
+          prev.map((d) =>
+            d.id === donorId
+              ? {
+                  ...d,
+                  claimedById: next.claimedById,
+                  claimedAt: next.claimedAt,
+                  claimedBy: next.claimedBy,
+                }
+              : d,
+          ),
+        );
+      }}
     />
   );
 }

@@ -21,20 +21,80 @@ export const dynamic = "force-dynamic";
  * "which upload did this come from?" later.
  */
 export default async function DonorsPage() {
-  const { org } = await getOrgContext();
+  const { org, userId, user, orgRole } = await getOrgContext();
 
-  const [donors, cohorts, listCount] = await Promise.all([
+  const [donors, cohorts, donorLists] = await Promise.all([
     prisma.donor.findMany({
       where: { donorList: { orgId: org.id } },
       orderBy: { reactivationScore: "desc" },
-      include: { cohorts: { include: { cohort: true } } },
+      include: {
+        cohorts: { include: { cohort: true } },
+        claimedBy: { select: { id: true, name: true, email: true } },
+        // Campaign history surfaced inside the expanded donor row.
+        // Newest-first so the most recent touchpoint shows up at the
+        // top — exactly what a major gift officer wants when they
+        // ask "when did we last reach out?". Sample drafts (donorId
+        // null on the campaign join) are filtered out by virtue of
+        // this being a per-donor join.
+        outreachDrafts: {
+          orderBy: { createdAt: "desc" },
+          select: {
+            id: true,
+            subject: true,
+            status: true,
+            sentAt: true,
+            deliveredAt: true,
+            openedAt: true,
+            openCount: true,
+            clickedAt: true,
+            clickCount: true,
+            repliedAt: true,
+            bouncedAt: true,
+            bounceReason: true,
+            createdAt: true,
+            campaign: {
+              select: { id: true, name: true, createdAt: true },
+            },
+          },
+        },
+      },
     }),
     prisma.cohortDefinition.findMany({
       where: { orgId: org.id, isArchived: false },
       orderBy: [{ family: "asc" }, { sortOrder: "asc" }, { name: "asc" }],
     }),
-    prisma.donorList.count({ where: { orgId: org.id } }),
+    prisma.donorList.findMany({
+      where: { orgId: org.id },
+      orderBy: { createdAt: "desc" },
+      include: {
+        uploadedBy: { select: { id: true, name: true, email: true } },
+        donors: { select: { cohorts: { select: { cohortDefinitionId: true } } } },
+      },
+    }),
   ]);
+
+  // Project each upload into a compact wire shape with the per-list
+  // distinct-cohort count computed server-side. Avoids shipping the
+  // full donor-cohort join graph to the client.
+  const uploads = donorLists.map((list) => {
+    const cohortIds = new Set<string>();
+    for (const d of list.donors) {
+      for (const dc of d.cohorts) cohortIds.add(dc.cohortDefinitionId);
+    }
+    return {
+      id: list.id,
+      fileName: list.fileName,
+      createdAt: list.createdAt.toISOString(),
+      totalDonors: list.totalDonors,
+      cohortCount: cohortIds.size,
+      uploadedBy: list.uploadedBy
+        ? {
+            name: list.uploadedBy.name,
+            email: list.uploadedBy.email,
+          }
+        : null,
+    };
+  });
 
   // Empty state — no donors anywhere. Show a one-card CTA that funnels
   // straight to /lapsed (the upload flow). Keeping it server-rendered
@@ -45,7 +105,18 @@ export default async function DonorsPage() {
   }
 
   return (
-    <DonorsClient donors={donors} cohorts={cohorts} listCount={listCount} />
+    <DonorsClient
+      donors={donors}
+      cohorts={cohorts}
+      listCount={donorLists.length}
+      uploads={uploads}
+      currentUser={{
+        id: userId,
+        name: user.name,
+        email: user.email,
+      }}
+      orgRole={orgRole}
+    />
   );
 }
 

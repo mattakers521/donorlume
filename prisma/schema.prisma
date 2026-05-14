@@ -91,6 +91,8 @@ model User {
   outreachDrafts  OutreachDraft[]
   accounts        Account[]
   sentInvitations Invitation[]
+  uploadedDonorLists DonorList[]
+  claimedDonors      Donor[]    @relation("DonorClaim")
 }
 
 // ─── NEXTAUTH (JWT strategy — no Session model needed) ───
@@ -246,10 +248,15 @@ model DonorList {
   totalDonors Int
   lapsedCount Int?
   processedAt DateTime?
+  // Who uploaded the list. Nullable so the column backfills as NULL on
+  // pre-existing rows and so a user delete doesn't cascade-delete the
+  // org's historical upload records (use SetNull).
+  uploadedByUserId String?
   createdAt   DateTime  @default(now())
 
-  org    Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
-  donors Donor[]
+  org        Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  uploadedBy User?        @relation(fields: [uploadedByUserId], references: [id], onDelete: SetNull)
+  donors     Donor[]
 }
 
 model Donor {
@@ -279,13 +286,22 @@ model Donor {
   searchIntent    Boolean?
   enrichmentData  Json?
 
+  // Ownership / cultivation claim. A team member can "claim" a donor
+  // to signal they're personally cultivating that relationship so
+  // other team members don't accidentally send conflicting outreach.
+  // SetNull on user delete preserves the donor row but drops the claim.
+  claimedById String?
+  claimedAt   DateTime?
+
   createdAt DateTime @default(now())
 
   donorList      DonorList       @relation(fields: [donorListId], references: [id], onDelete: Cascade)
+  claimedBy      User?           @relation("DonorClaim", fields: [claimedById], references: [id], onDelete: SetNull)
   outreachDrafts OutreachDraft[]
   cohorts        DonorCohort[]
 
   @@index([donorListId, reactivationScore])
+  @@index([claimedById])
   @@index([donorListId, isLapsed])
 }
 

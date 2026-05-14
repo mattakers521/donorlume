@@ -5,7 +5,7 @@ import { LapsedClient } from "@/components/lapsed/lapsed-client";
 export const dynamic = "force-dynamic";
 
 export default async function LapsedPage() {
-  const { org } = await getOrgContext();
+  const { org, userId, user, orgRole } = await getOrgContext();
 
   // Show the most-recent DonorList for this org. Older lists stay in the
   // database but aren't surfaced until we add a list-selector UI.
@@ -15,7 +15,10 @@ export default async function LapsedPage() {
     include: {
       donors: {
         orderBy: { reactivationScore: "desc" },
-        include: { cohorts: { include: { cohort: true } } },
+        include: {
+          cohorts: { include: { cohort: true } },
+          claimedBy: { select: { id: true, name: true, email: true } },
+        },
       },
     },
   });
@@ -32,6 +35,8 @@ export default async function LapsedPage() {
       initialList={list}
       lapsedThresholdMonths={12}
       cohorts={cohorts}
+      currentUser={{ id: userId, name: user.name, email: user.email }}
+      orgRole={orgRole}
     />
   );
 }

@@ -20,6 +20,10 @@ import { fmt } from "@/lib/format";
 import { ScoreRing } from "@/components/score-ring";
 import { TierBadge } from "@/components/tier-badge";
 import {
+  ClaimButton,
+  type ClaimedByInfo,
+} from "@/components/donors/claim-button";
+import {
   CohortBadge,
   CohortOverflow,
 } from "@/components/lapsed/cohort-badge";
@@ -29,6 +33,12 @@ import type { DonorWithCohorts } from "@/components/lapsed/lapsed-client";
 type SortKey = "score" | "name" | "totalGiven" | "daysSinceLast";
 type Tier = "all" | "High" | "Medium" | "Low" | "Cold";
 
+type ClaimUpdate = {
+  claimedById: string | null;
+  claimedAt: Date | null;
+  claimedBy: ClaimedByInfo;
+};
+
 type Props = {
   donors: DonorWithCohorts[];
   cohorts: CohortDefinition[];
@@ -36,6 +46,11 @@ type Props = {
   thresholdMonths: number;
   onThresholdChange: (months: number) => void;
   onNewUpload: () => void;
+  currentUser: { id: string; name: string | null; email: string };
+  orgRole: "OWNER" | "ADMIN" | "MEMBER" | "VIEWER";
+  /** Optimistic-update hook — bubbles the new claim state up to the
+   *  parent so the in-memory donor list flips immediately on click. */
+  onClaimUpdate: (donorId: string, next: ClaimUpdate) => void;
 };
 
 export function ScoredView({
@@ -45,6 +60,9 @@ export function ScoredView({
   thresholdMonths,
   onThresholdChange,
   onNewUpload,
+  currentUser,
+  orgRole,
+  onClaimUpdate,
 }: Props) {
   const router = useRouter();
 
@@ -396,7 +414,7 @@ export function ScoredView({
           <table
             style={{
               width: "100%",
-              minWidth: 880,
+              minWidth: 1040,
               borderCollapse: "collapse",
             }}
           >
@@ -465,6 +483,20 @@ export function ScoredView({
                 >
                   Tier
                 </th>
+                <th
+                  style={{
+                    fontSize: 11,
+                    fontWeight: 700,
+                    color: C.textTertiary,
+                    textAlign: "left",
+                    padding: "12px 18px",
+                    textTransform: "uppercase",
+                    letterSpacing: 0.5,
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  Claim
+                </th>
                 <th style={{ width: 36 }} />
               </tr>
             </thead>
@@ -481,6 +513,9 @@ export function ScoredView({
                     setExpandedId((cur) => (cur === d.id ? null : d.id))
                   }
                   onCohortClick={toggleCohort}
+                  currentUser={currentUser}
+                  orgRole={orgRole}
+                  onClaimUpdate={onClaimUpdate}
                 />
               ))}
             </tbody>
@@ -612,6 +647,9 @@ function DonorRow({
   onToggleSelect,
   onToggleExpand,
   onCohortClick,
+  currentUser,
+  orgRole,
+  onClaimUpdate,
 }: {
   donor: DonorWithCohorts;
   now: number;
@@ -620,6 +658,9 @@ function DonorRow({
   onToggleSelect: () => void;
   onToggleExpand: () => void;
   onCohortClick: (cohortId: string) => void;
+  currentUser: { id: string; name: string | null; email: string };
+  orgRole: "OWNER" | "ADMIN" | "MEMBER" | "VIEWER";
+  onClaimUpdate: (donorId: string, next: ClaimUpdate) => void;
 }) {
   const months = donor.lastGiftDate
     ? Math.round(
@@ -750,6 +791,18 @@ function DonorRow({
         <td style={{ padding: "14px 18px" }} onClick={onToggleExpand}>
           <TierBadge tier={donor.tier} />
         </td>
+        <td
+          style={{ padding: "14px 18px" }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <ClaimButton
+            donorId={donor.id}
+            claimedBy={donor.claimedBy}
+            currentUserId={currentUser.id}
+            orgRole={orgRole}
+            onUpdate={(next) => onClaimUpdate(donor.id, next)}
+          />
+        </td>
         <td style={{ padding: "14px 18px" }}>
           <ChevronDown
             size={16}
@@ -811,7 +864,7 @@ function ExpandedRow({ donor }: { donor: DonorWithCohorts }) {
   return (
     <tr style={{ borderTop: `1px solid ${C.borderSubtle}` }}>
       <td
-        colSpan={8}
+        colSpan={9}
         style={{
           padding: "0 18px 20px 56px",
           backgroundColor: C.surfaceHover,

@@ -27,6 +27,10 @@ export type SelectableDonor = {
   ctx: DonorContext;
   /** Cohort summaries for badge rendering (real donors only — samples = []). */
   cohorts: { id: string; name: string; color: string }[];
+  /** Cultivation claim — set on real donors with `claimedById`. Drives the
+   *  "Claimed by Sarah" badge and the default "hide donors claimed by
+   *  others" filter on the select step. Samples + manual contacts: null. */
+  claimedBy: { id: string; name: string | null; email: string } | null;
 };
 
 type Defaults = {
@@ -53,6 +57,10 @@ type Props = {
    * click next.
    */
   onboardingActive?: boolean;
+  /** Drives the "Claimed by you" vs "Claimed by other" decision in
+   *  OutreachSelect, and which donors the default "hide claimed by
+   *  others" filter excludes. */
+  currentUserId: string;
 };
 
 type Step = "setup" | "select" | "gen" | "results";
@@ -64,6 +72,7 @@ export function OutreachClient({
   cohorts,
   initialCohortFilterId,
   onboardingActive = false,
+  currentUserId,
 }: Props) {
   const router = useRouter();
   const pathname = usePathname();
@@ -151,6 +160,7 @@ export function OutreachClient({
           cohorts: [],
         },
         cohorts: [],
+        claimedBy: null,
       };
       setManualContacts((prev) => [...prev, contact]);
       setSelected((prev) => {
@@ -674,6 +684,7 @@ export function OutreachClient({
           onAddManualContact={addManualContact}
           onBack={() => setStep("setup")}
           onGenerate={generate}
+          currentUserId={currentUserId}
         />
       </>
     );
