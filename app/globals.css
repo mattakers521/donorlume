@@ -94,6 +94,49 @@ body {
 @media (min-width: 480px) {
   .landing-header-signin { display: inline-block; }
 }
+
+/* Landing-header text colors.
+ *
+ * Two states keyed off `data-header-scrolled` on the <header>:
+ *
+ *   • UNSCROLLED (transparent bar at the top of the page) — dark text
+ *     in case the section behind the header is light. Brand-safe even
+ *     on the hero (the dark backdrop tolerates dark text; the legible
+ *     fallback matters more than the aesthetic).
+ *   • SCROLLED (frosted dark panel) — white text, matches the panel.
+ *
+ * Hover lifts each link to its full-contrast variant. Done in CSS so
+ * the hover state agrees with the current scroll state automatically
+ * — `onMouseEnter` handlers in React captured a stale `scrolled`
+ * value through closures.
+ */
+.landing-nav-link {
+  color: rgba(29, 29, 31, 0.72);
+  text-decoration: none;
+  transition: color 0.15s;
+}
+.landing-nav-link:hover { color: #1D1D1F; }
+.landing-header-signin {
+  color: rgba(29, 29, 31, 0.72);
+  text-decoration: none;
+  transition: color 0.15s;
+}
+.landing-header-signin:hover { color: #1D1D1F; }
+.landing-brand-wordmark { color: #1D1D1F; }
+.landing-brand-tagline { color: rgba(29, 29, 31, 0.55); }
+
+[data-header-scrolled="true"] .landing-nav-link {
+  color: rgba(255, 255, 255, 0.78);
+}
+[data-header-scrolled="true"] .landing-nav-link:hover { color: #fff; }
+[data-header-scrolled="true"] .landing-header-signin {
+  color: rgba(255, 255, 255, 0.78);
+}
+[data-header-scrolled="true"] .landing-header-signin:hover { color: #fff; }
+[data-header-scrolled="true"] .landing-brand-wordmark { color: #fff; }
+[data-header-scrolled="true"] .landing-brand-tagline {
+  color: rgba(255, 255, 255, 0.55);
+}
 .landing-hero-h1 { font-size: 40px; line-height: 1.1; letter-spacing: -1.5px; }
 .landing-section-h2 { font-size: 32px; line-height: 1.15; letter-spacing: -1px; }
 @media (min-width: 768px) {

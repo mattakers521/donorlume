@@ -34,6 +34,7 @@ export function LandingHeader({ isAuthed }: Props) {
   // every section below.
   return (
     <header
+      data-header-scrolled={scrolled ? "true" : "false"}
       style={{
         position: "sticky",
         top: 0,
@@ -76,19 +77,19 @@ export function LandingHeader({ isAuthed }: Props) {
           <StarburstLogo size={40} idKey="landing-header" />
           <div style={{ lineHeight: 1.1 }}>
             <div
+              className="landing-brand-wordmark"
               style={{
                 fontSize: 20,
                 fontWeight: 800,
-                color: "#fff",
                 letterSpacing: -0.5,
               }}
             >
               DonorLume
             </div>
             <div
+              className="landing-brand-tagline"
               style={{
                 fontSize: 10,
-                color: "rgba(255,255,255,0.55)",
                 letterSpacing: 1,
                 textTransform: "uppercase",
                 fontWeight: 700,
@@ -109,17 +110,8 @@ export function LandingHeader({ isAuthed }: Props) {
             <a
               key={n.href}
               href={n.href}
-              style={{
-                fontSize: 14,
-                fontWeight: 600,
-                color: "rgba(255,255,255,0.75)",
-                textDecoration: "none",
-                transition: "color 0.15s",
-              }}
-              onMouseEnter={(e) => (e.currentTarget.style.color = "#fff")}
-              onMouseLeave={(e) =>
-                (e.currentTarget.style.color = "rgba(255,255,255,0.75)")
-              }
+              className="landing-nav-link"
+              style={{ fontSize: 14, fontWeight: 600 }}
             >
               {n.label}
             </a>
@@ -159,8 +151,6 @@ export function LandingHeader({ isAuthed }: Props) {
                 style={{
                   fontSize: 14,
                   fontWeight: 600,
-                  color: "rgba(255,255,255,0.75)",
-                  textDecoration: "none",
                   padding: "10px 6px",
                 }}
               >
