@@ -59,21 +59,152 @@ const ToastCtx = createContext<{
 } | null>(null);
 
 /**
+ * sessionStorage key for the active-toast snapshot.
+ *
+ * Why we persist the active toast at all: React parent re-renders
+ * (e.g. `router.refresh()` after a server-action completion) can in
+ * some flows trigger a `ToastProvider` unmount + remount — which
+ * blows away the in-memory `current` state and the `setTimeout` that
+ * was supposed to keep the toast on screen for its full TTL. The
+ * snapshot lets a remounted provider restore the visible toast with
+ * the correct *remaining* time.
+ *
+ * Serialization caveat: action callbacks (`onClick`) are lost in the
+ * JSON round-trip — we degrade gracefully by dropping the callback
+ * on restore (clicking the action button just dismisses the toast).
+ * `href`-based actions survive unchanged.
+ */
+const TOAST_STORAGE_KEY = "dl_toast_active";
+
+type StoredToast = {
+  toast: Toast;
+  /** Unix ms when the original timer was supposed to fire. */
+  expiresAt: number;
+};
+
+function readStoredToast(): StoredToast | null {
+  try {
+    const raw = sessionStorage.getItem(TOAST_STORAGE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as StoredToast;
+    if (
+      !parsed ||
+      typeof parsed.expiresAt !== "number" ||
+      !parsed.toast ||
+      typeof parsed.toast.id !== "number"
+    ) {
+      return null;
+    }
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+function writeStoredToast(toast: Toast, expiresAt: number) {
+  try {
+    // JSON drops function refs silently — onClick action handlers
+    // can't survive a remount/restore. We keep the {label, href} half
+    // of the discriminated union if present; otherwise leave action
+    // undefined on the stored copy so the post-restore button is a
+    // bare dismiss-only affordance with the right label.
+    const serializableAction =
+      toast.action && "href" in toast.action && toast.action.href
+        ? { label: toast.action.label, href: toast.action.href }
+        : toast.action
+          ? { label: toast.action.label }
+          : undefined;
+
+    sessionStorage.setItem(
+      TOAST_STORAGE_KEY,
+      JSON.stringify({
+        toast: { ...toast, action: serializableAction },
+        expiresAt,
+      }),
+    );
+  } catch {
+    // Private-browsing modes can throw — fall back to in-memory only.
+  }
+}
+
+function clearStoredToast() {
+  try {
+    sessionStorage.removeItem(TOAST_STORAGE_KEY);
+  } catch {
+    /* ignore */
+  }
+}
+
+/**
  * Single-slot toast system. Latest toast replaces any prior one — fine
  * for the onboarding flow (each completion fires exactly once thanks to
  * the server-side firstX flag). If we ever need stacked toasts, swap
  * `current` for an array.
+ *
+ * Two trace points fire to the browser console under `[toast-trace]`
+ * so a stuck toast can be diagnosed: provider mount/unmount, every
+ * `toast()` call (with the chosen TTL), every timer fire, every
+ * manual dismiss, every storage restore. Cheap to keep in production
+ * — fires at most a few times per page session.
  */
 export function ToastProvider({ children }: { children: ReactNode }) {
   const [current, setCurrent] = useState<Toast | null>(null);
   const idRef = useRef(0);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // ─── Restore from sessionStorage on mount ───────────────────────────
+  // Runs at-most-once. If a toast was active before the provider
+  // remounted (e.g. dev fast-refresh, router.refresh tree reshuffle),
+  // bring it back with the remaining TTL.
+  useEffect(() => {
+    console.log("[toast-trace] ToastProvider MOUNT");
+    const stored = readStoredToast();
+    if (!stored) {
+      console.log("[toast-trace] no stored toast on mount");
+      return () => {
+        console.log("[toast-trace] ToastProvider UNMOUNT");
+        if (timerRef.current) clearTimeout(timerRef.current);
+      };
+    }
+    const remainingMs = stored.expiresAt - Date.now();
+    if (remainingMs <= 0) {
+      console.log(
+        "[toast-trace] stored toast already expired — clearing",
+      );
+      clearStoredToast();
+      return () => {
+        console.log("[toast-trace] ToastProvider UNMOUNT");
+        if (timerRef.current) clearTimeout(timerRef.current);
+      };
+    }
+    console.log(
+      `[toast-trace] restoring toast id=${stored.toast.id} kind=${stored.toast.kind ?? "default"} remainingMs=${remainingMs}`,
+    );
+    // Keep idRef ahead of the restored id so subsequent toast() calls
+    // generate strictly-monotonic ids and never collide with restored.
+    idRef.current = Math.max(idRef.current, stored.toast.id);
+    setCurrent(stored.toast);
+    timerRef.current = setTimeout(() => {
+      console.log(
+        `[toast-trace] restored timer fired for id=${stored.toast.id}`,
+      );
+      clearStoredToast();
+      setCurrent((c) => (c?.id === stored.toast.id ? null : c));
+      timerRef.current = null;
+    }, remainingMs);
+    return () => {
+      console.log("[toast-trace] ToastProvider UNMOUNT");
+      if (timerRef.current) clearTimeout(timerRef.current);
+    };
+  }, []);
+
   const dismiss = useCallback(() => {
+    console.log("[toast-trace] dismiss() called");
     if (timerRef.current) {
       clearTimeout(timerRef.current);
       timerRef.current = null;
     }
+    clearStoredToast();
     setCurrent(null);
   }, []);
 
@@ -86,17 +217,18 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     // read the body AND click the CTA before it disappears. 15s vs 6s
     // for everything else.
     const fallbackMs = input.kind === "onboarding" ? 15_000 : 6_000;
+    const ttl = input.duration ?? fallbackMs;
+    const expiresAt = Date.now() + ttl;
+    console.log(
+      `[toast-trace] toast() id=${next.id} kind=${input.kind ?? "default"} ttl=${ttl}ms title="${input.title}"`,
+    );
+    writeStoredToast(next, expiresAt);
     timerRef.current = setTimeout(() => {
+      console.log(`[toast-trace] timer fired for id=${next.id}`);
+      clearStoredToast();
       setCurrent((c) => (c?.id === next.id ? null : c));
       timerRef.current = null;
-    }, input.duration ?? fallbackMs);
-  }, []);
-
-  // Cleanup on unmount
-  useEffect(() => {
-    return () => {
-      if (timerRef.current) clearTimeout(timerRef.current);
-    };
+    }, ttl);
   }, []);
 
   const ctxValue = useMemo(() => ({ toast }), [toast]);
