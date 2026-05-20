@@ -20,6 +20,10 @@ type Props = {
   orgName: string;
   /** Null when the bar should be hidden (all-done or dismissed). */
   onboardingBar: OnboardingBarProps;
+  /** Surfaces the "Admin" link in the sidebar. Authorization for the
+   *  /admin page itself is enforced server-side by requireAdmin() — this
+   *  flag is just nav visibility. */
+  isAdmin: boolean;
   children: ReactNode;
 };
 
@@ -38,6 +42,7 @@ export function AppShell({
   user,
   orgName,
   onboardingBar,
+  isAdmin,
   children,
 }: Props) {
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -69,6 +74,7 @@ export function AppShell({
         orgName={orgName}
         mobileOpen={mobileOpen}
         onMobileClose={() => setMobileOpen(false)}
+        isAdmin={isAdmin}
       />
 
       {/* Mobile backdrop — only rendered when the drawer is open. */}

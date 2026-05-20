@@ -35,7 +35,8 @@ export default {
         nextUrl.pathname.startsWith("/reports") ||
         nextUrl.pathname.startsWith("/settings") ||
         nextUrl.pathname.startsWith("/onboarding") ||
-        nextUrl.pathname.startsWith("/celebrate");
+        nextUrl.pathname.startsWith("/celebrate") ||
+        nextUrl.pathname.startsWith("/admin");
 
       if (isProtected && !isAuthed) return false;
       return true;

@@ -7,7 +7,7 @@ import { signOut } from "next-auth/react";
 import { LogOut, X } from "lucide-react";
 
 import { C, brandGradient } from "@/lib/design";
-import { NAV, NAV_SECONDARY_GROUPS, type NavItem } from "@/lib/nav";
+import { ADMIN_NAV_ITEM, NAV, NAV_SECONDARY_GROUPS, type NavItem } from "@/lib/nav";
 import { StarburstLogo } from "@/components/starburst-logo";
 
 type Props = {
@@ -16,6 +16,11 @@ type Props = {
   /** Controlled by the parent AppShell; ignored on desktop. */
   mobileOpen?: boolean;
   onMobileClose?: () => void;
+  /** When true, an "Admin" entry renders below the primary nav. The
+   *  hosting layout decides this from the session email — never trust
+   *  this flag to also enforce authorization; the /admin server
+   *  components re-check via `requireAdmin()`. */
+  isAdmin?: boolean;
 };
 
 export function Sidebar({
@@ -23,6 +28,7 @@ export function Sidebar({
   orgName,
   mobileOpen = false,
   onMobileClose,
+  isAdmin = false,
 }: Props) {
   // Desktop collapse state — independent of the mobile drawer flow.
   const [collapsed, setCollapsed] = useState(false);
@@ -198,6 +204,15 @@ export function Sidebar({
           />
         ))}
 
+        {isAdmin && (
+          <NavLink
+            item={ADMIN_NAV_ITEM}
+            collapsed={!isExpandedView}
+            pathname={pathname}
+            onNavigate={isMobile ? onMobileClose : undefined}
+          />
+        )}
+
         <div style={{ flex: 1 }} />
 
         <div
@@ -347,6 +362,7 @@ function NavLink({
   // way /settings/team doesn't also highlight "Preferences" (/settings).
   const allPaths = [
     ...NAV.map((n) => n.path),
+    ADMIN_NAV_ITEM.path,
     ...NAV_SECONDARY_GROUPS.flatMap((g) => g.items.map((i) => i.path)),
   ];
   const isPrefixOfAnother = allPaths.some(

@@ -10,6 +10,7 @@ import {
   RefreshCw,
   Search,
   Settings,
+  Shield,
   User,
   Users,
   type LucideIcon,
@@ -26,6 +27,20 @@ export type NavGroup = {
   id: string;
   label?: string;
   items: NavItem[];
+};
+
+/**
+ * Admin-only nav entry. Rendered by the sidebar ONLY when the layout
+ * passes `isAdmin = true`. Defined here (not inline in the sidebar)
+ * so the `pageTitleFor` helper below can resolve "/admin" to its
+ * topbar title regardless of who's looking — gating happens at the
+ * sidebar render, not the title-lookup.
+ */
+export const ADMIN_NAV_ITEM: NavItem = {
+  id: "admin",
+  label: "Admin",
+  path: "/admin",
+  Icon: Shield,
 };
 
 /** Primary nav (top of sidebar) — matches the order in donorluma-app.jsx:703. */
@@ -105,6 +120,10 @@ export const PAGE_TITLES: Record<string, { title: string; sub?: string }> = {
   "/dashboard": {
     title: "Dashboard",
     sub: "Your fundraising intelligence at a glance.",
+  },
+  "/admin": {
+    title: "Admin",
+    sub: "DonorLume operator console — usage, signups, and exports.",
   },
   "/discover": {
     title: "Prospect Discovery",

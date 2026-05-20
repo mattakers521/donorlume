@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 
+import { isAdminEmail } from "@/lib/admin";
 import { getOnboardingState } from "@/lib/onboarding/state";
 import { getOrgContext } from "@/lib/with-org";
 import { AppShell } from "@/components/app-shell";
@@ -52,6 +53,7 @@ export default async function AppLayout({
       user={{ name: user.name, email: user.email, image: user.image }}
       orgName={org.name}
       onboardingBar={onboardingBar}
+      isAdmin={isAdminEmail(user.email)}
     >
       {children}
     </AppShell>
