@@ -4,7 +4,20 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
+  // Pooled connection — used by the app at runtime. Neon's pgbouncer
+  // multiplexes requests across a small pool of real Postgres
+  // connections, which is what lets a serverless function not exhaust
+  // the connection limit.
+  url       = env("DATABASE_URL")
+  // Direct (non-pooled) connection — used only by Prisma for schema
+  // operations (`prisma migrate deploy`, `prisma db push`, etc).
+  // pgbouncer transaction-pooling mode doesn't support the Postgres
+  // advisory locks that `migrate deploy` uses to serialize concurrent
+  // migrators across replicas, which is why the Vercel build was
+  // failing with P1002. The direct URL bypasses pgbouncer and hits
+  // the database endpoint directly. Prisma reads this only for CLI
+  // commands; runtime queries still go through `url`.
+  directUrl = env("DIRECT_URL")
 }
 
 // ─── MULTI-TENANCY ───
