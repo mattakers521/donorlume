@@ -101,14 +101,14 @@ export function buildReportCsv(report: ReportData): string {
   }
   lines.push("");
 
-  // ─── Cohort Health ───
-  lines.push(row("COHORT HEALTH"));
+  // ─── Segment Health ───
+  lines.push(row("SEGMENT HEALTH"));
   if (report.cohorts.length === 0) {
-    lines.push(row("No cohorts yet — upload a donor list to populate."));
+    lines.push(row("No segments yet — upload a donor list to populate."));
   } else {
     lines.push(
       row(
-        "Cohort",
+        "Segment",
         "Family",
         "Members",
         "Lifetime value",

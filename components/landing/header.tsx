@@ -12,7 +12,7 @@ type Props = {
 
 const NAV = [
   { href: "#how-it-works", label: "How it works" },
-  { href: "#donor-intelligence", label: "Cohorts" },
+  { href: "#donor-intelligence", label: "Donor Segments" },
   { href: "#features", label: "Features" },
   { href: "#pricing", label: "Pricing" },
   { href: "#faq", label: "FAQ" },

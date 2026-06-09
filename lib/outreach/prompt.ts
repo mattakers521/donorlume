@@ -86,10 +86,10 @@ export function buildSystemPrompt(
     `- Tone: ${tone}`,
     `- Type: ${type}`,
     "",
-    // Spec §7 — cohort context. Tells the model what each cohort label means
-    // so it tailors voice + emphasis instead of using cohorts as adornment.
-    "Cohort context — each donor's COHORTS line lists relationship tags.",
-    "Tailor the outreach to reflect their specific cohorts. For example:",
+    // Spec §7 — segment context. Tells the model what each segment label means
+    // so it tailors voice + emphasis instead of using segments as adornment.
+    "Segment context — each donor's SEGMENTS line lists relationship tags.",
+    "Tailor the outreach to reflect their specific segments. For example:",
     "- Major Donor — emphasize impact, scale, and personal relationship.",
     "- Recurring Sustainer / monthly giver — acknowledge their ongoing commitment.",
     "- First-Time Donor — welcome warmly and reinforce the impact of their first gift.",
@@ -98,7 +98,7 @@ export function buildSystemPrompt(
     "- Legacy / Planned Giving Prospect — speak to long-term partnership and legacy.",
     "- Corporate / Foundation / DAF — frame as partnership; reference institutional value.",
     "- Gala Attendee / Volunteer / Board Member / event tags — reference the shared moment by name.",
-    "When multiple cohorts apply, lead with the most distinctive (e.g. Major + Lapsed → reconnection at a major-gift level).",
+    "When multiple segments apply, lead with the most distinctive (e.g. Major + Lapsed → reconnection at a major-gift level).",
     c.customInstructions?.trim()
       ? `\nAdditional instructions: ${c.customInstructions.trim()}`
       : "",
@@ -125,7 +125,7 @@ export function buildUserPrompt(d: DonorContext, emailType: string): string {
   const lines = [
     `DONOR: ${d.name}${d.donorType ? ` (${d.donorType})` : ""}`,
     d.cohorts && d.cohorts.length > 0
-      ? `- COHORTS: ${d.cohorts.join(", ")}`
+      ? `- SEGMENTS: ${d.cohorts.join(", ")}`
       : null,
     `- ${d.totalGifts ?? "—"} gifts totaling ${fmt$(d.totalGiven)}`,
     d.lastGiftLabel

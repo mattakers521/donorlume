@@ -420,7 +420,7 @@ function EmptyState({
         }}
       >
         Ask anything about uploading donors, searching prospects, building
-        cohorts, or running outreach campaigns.
+        segments, or running outreach campaigns.
       </p>
       <div
         style={{

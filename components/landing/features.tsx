@@ -32,8 +32,8 @@ const FEATURES: Feature[] = [
     Icon: BarChart3,
     iconColor: C.orange,
     iconBg: "rgba(212,74,26,0.14)",
-    heading: "Cohort Scoring",
-    body: "Every cohort gets its own scoring context. Reactivation strategy is different for every group.",
+    heading: "Segment Scoring",
+    body: "Every segment gets its own scoring context. Reactivation strategy is different for every group.",
   },
   {
     Icon: FileText,
@@ -54,14 +54,14 @@ const FEATURES: Feature[] = [
     iconColor: C.amberOnDark,
     iconBg: "rgba(245,183,49,0.14)",
     heading: "Send & Track",
-    body: "Send from DonorLume. Track opens, clicks, and responses by cohort.",
+    body: "Send from DonorLume. Track opens, clicks, and responses by segment.",
   },
   {
     Icon: Mail,
     iconColor: C.orange,
     iconBg: "rgba(212,74,26,0.14)",
     heading: "Board-Ready Reporting",
-    body: "Pipeline, outreach, and cohort performance — packaged for your next board meeting.",
+    body: "Pipeline, outreach, and segment performance — packaged for your next board meeting.",
   },
   {
     Icon: Upload,

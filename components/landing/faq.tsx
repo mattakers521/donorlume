@@ -13,8 +13,8 @@ const FAQ: QA[] = [
     a: "DonorLume is a donor intelligence platform for nonprofits. It automatically classifies your donors into meaningful segments, scores them for action, discovers new funding prospects, and generates personalized outreach — so you always know who to talk to, what to say, and when.",
   },
   {
-    q: "What are donor cohorts?",
-    a: "Cohorts are meaningful groups within your donor base — like major donors, lapsed sustainers, gala attendees, corporate sponsors, first-time givers, or donors who are increasing their giving. Every fundraiser thinks in cohorts, but most tools force them to build these segments manually in spreadsheets. DonorLume creates them automatically.",
+    q: "What are donor segments?",
+    a: "Segments are meaningful groups within your donor base — like major donors, lapsed sustainers, gala attendees, corporate sponsors, first-time givers, or donors who are increasing their giving. Every fundraiser thinks in segments, but most tools force them to build these manually in spreadsheets. DonorLume creates them automatically.",
   },
   {
     q: "Who is DonorLume for?",
@@ -22,7 +22,7 @@ const FAQ: QA[] = [
   },
   {
     q: "What kinds of donors can I analyze?",
-    a: "Any kind. Individual donors, corporate sponsors, foundation funders, monthly sustainers, gala attendees, volunteers who also give, board members — any donor or supporter in your CRM. Upload them all and DonorLume sorts them into actionable cohorts.",
+    a: "Any kind. Individual donors, corporate sponsors, foundation funders, monthly sustainers, gala attendees, volunteers who also give, board members — any donor or supporter in your CRM. Upload them all and DonorLume sorts them into actionable segments.",
   },
   {
     q: "Where does the prospect data come from?",
@@ -30,7 +30,7 @@ const FAQ: QA[] = [
   },
   {
     q: "How does the AI outreach work?",
-    a: "Select donors from any cohort, choose a tone and approach, and DonorLume generates a unique email for each person based on their actual giving history, cohort context, and your organization's mission. You review and approve every draft. The AI never sends anything without your sign-off.",
+    a: "Select donors from any segment, choose a tone and approach, and DonorLume generates a unique email for each person based on their actual giving history, segment context, and your organization's mission. You review and approve every draft. The AI never sends anything without your sign-off.",
   },
   {
     q: "Can I send emails directly from DonorLume?",
@@ -42,7 +42,7 @@ const FAQ: QA[] = [
   },
   {
     q: "Can I use DonorLume with my event fundraising software?",
-    a: "Absolutely. DonorLume works with all major event fundraising platforms including OneCause, GiveButter, BetterUnite, Givesmart, and Greater Giving. Export your attendee, bidder, and donor data as a CSV after your event, upload it to DonorLume, and we'll automatically classify your event attendees into cohorts, score them for follow-up potential, and generate personalized outreach to convert one-time event donors into lifelong supporters.",
+    a: "Absolutely. DonorLume works with all major event fundraising platforms including OneCause, GiveButter, BetterUnite, Givesmart, and Greater Giving. Export your attendee, bidder, and donor data as a CSV after your event, upload it to DonorLume, and we'll automatically classify your event attendees into segments, score them for follow-up potential, and generate personalized outreach to convert one-time event donors into lifelong supporters.",
   },
   {
     q: "Is my data secure?",
@@ -54,7 +54,7 @@ const FAQ: QA[] = [
   },
   {
     q: "How is this different from wealth screening tools like iWave or DonorSearch?",
-    a: "Wealth screening tools tell you how rich someone is. DonorLume tells you who to talk to, what to say, and when — across every cohort in your donor base. We combine prospecting, scoring, cohort analysis, and AI outreach in one platform at a fraction of enterprise pricing. And we work with your existing CRM instead of requiring you to switch.",
+    a: "Wealth screening tools tell you how rich someone is. DonorLume tells you who to talk to, what to say, and when — across every segment in your donor base. We combine prospecting, scoring, segment analysis, and AI outreach in one platform at a fraction of enterprise pricing. And we work with your existing CRM instead of requiring you to switch.",
   },
   {
     q: "I'm a consultant working with multiple nonprofits. Can I use DonorLume?",

@@ -24,7 +24,7 @@ const MODULES: Module[] = [
     iconBg: "rgba(245,183,49,0.12)",
     number: "01",
     heading: "Your donors, organized in minutes.",
-    body: "Upload a CSV from any CRM. We classify every donor into the cohorts that matter — automatically.",
+    body: "Upload a CSV from any CRM. We classify every donor into the segments that matter — automatically.",
   },
   {
     Icon: BarChart3,

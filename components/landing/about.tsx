@@ -147,7 +147,7 @@ export function LandingAbout() {
           >
             &ldquo;Every fundraiser I&rsquo;ve worked with does the same
             thing: exports their donor list, opens Excel, and starts
-            sorting. By cohort. By behavior. By giving level. By event.
+            sorting. By segment. By behavior. By giving level. By event.
             They&rsquo;re building their own intelligence layer by hand,
             every quarter, because no tool does it for them at a price
             they can afford. DonorLume is that tool.&rdquo;

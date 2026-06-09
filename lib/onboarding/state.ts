@@ -139,7 +139,7 @@ export const getOnboardingState = cache(
       {
         key: "outreach",
         title: "Generate your first outreach",
-        body: "Pick a cohort and let Claude draft the emails — so you can send personalized outreach in minutes instead of writing each one by hand.",
+        body: "Pick a segment and let Claude draft the emails — so you can send personalized outreach in minutes instead of writing each one by hand.",
         cta: "Start a campaign",
         href: "/outreach/new?onboarding=1",
         completedToast: "You've created your first outreach campaign.",
