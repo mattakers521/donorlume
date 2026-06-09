@@ -60,6 +60,9 @@ export default async function BillingPage({
         p.limits.aiEmailsPerMonth
           ? `${p.limits.aiEmailsPerMonth.toLocaleString()} AI emails/mo`
           : "Unlimited AI emails",
+        p.limits.emailSendsPerDay
+          ? `${p.limits.emailSendsPerDay.toLocaleString()} email sends/day`
+          : "Unlimited daily sends",
         p.limits.seats ? `${p.limits.seats} seats` : "Unlimited seats",
       ],
     };

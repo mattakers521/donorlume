@@ -31,6 +31,13 @@ export type PlanDefinition = {
     donorRecords: number | null;
     aiEmailsPerMonth: number | null;
     seats: number | null;
+    /**
+     * Maximum outbound emails (Resend dispatch) the org can send in a
+     * UTC calendar day. Defends shared sending reputation against
+     * surge-and-burn campaigns. Separate from the per-month `aiEmailsPerMonth`
+     * cap — that gates draft generation; this gates delivery.
+     */
+    emailSendsPerDay: number | null;
   };
   /** Stripe price IDs — null for ENTERPRISE / when env var is unset. */
   stripePriceIdMonthly: string | null;
@@ -61,6 +68,7 @@ export const PLANS: Record<PlanKey, PlanDefinition> = {
       donorRecords: 2_500,
       aiEmailsPerMonth: 50,
       seats: 2,
+      emailSendsPerDay: 100,
     },
     stripePriceIdMonthly: priceFromEnv("STRIPE_PRICE_STARTER"),
     stripePriceIdAnnual: priceFromEnv("STRIPE_PRICE_STARTER_ANNUAL"),
@@ -81,6 +89,7 @@ export const PLANS: Record<PlanKey, PlanDefinition> = {
       donorRecords: 10_000,
       aiEmailsPerMonth: 250,
       seats: 5,
+      emailSendsPerDay: 250,
     },
     stripePriceIdMonthly: priceFromEnv("STRIPE_PRICE_GROWTH"),
     stripePriceIdAnnual: priceFromEnv("STRIPE_PRICE_GROWTH_ANNUAL"),
@@ -101,6 +110,7 @@ export const PLANS: Record<PlanKey, PlanDefinition> = {
       donorRecords: 50_000,
       aiEmailsPerMonth: null,
       seats: null,
+      emailSendsPerDay: 500,
     },
     stripePriceIdMonthly: priceFromEnv("STRIPE_PRICE_SCALE"),
     stripePriceIdAnnual: priceFromEnv("STRIPE_PRICE_SCALE_ANNUAL"),
@@ -121,6 +131,7 @@ export const PLANS: Record<PlanKey, PlanDefinition> = {
       donorRecords: null,
       aiEmailsPerMonth: null,
       seats: null,
+      emailSendsPerDay: null,
     },
     stripePriceIdMonthly: null,
     stripePriceIdAnnual: null,

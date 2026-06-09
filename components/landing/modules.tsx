@@ -47,8 +47,8 @@ const MODULES: Module[] = [
     iconColor: C.purple,
     iconBg: "rgba(175,82,222,0.14)",
     number: "04",
-    heading: "Personalized outreach for every cohort.",
-    body: "A reactivation email reads completely differently from a renewal request — because it should.",
+    heading: "Send personalized outreach. Track every open, click, and reply.",
+    body: "A reactivation email reads completely differently from a renewal request — because it should. Send directly from DonorLume to know exactly who engaged — and who to follow up with. No guessing.",
   },
 ];
 

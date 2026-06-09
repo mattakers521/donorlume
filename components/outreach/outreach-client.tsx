@@ -12,9 +12,48 @@ import { OutreachProgress } from "@/components/outreach/outreach-progress";
 import { useToast } from "@/components/toast/toast-provider";
 import {
   OutreachResults,
+  type BulkSendState,
+  type DedupPrompt,
   type DeliveryStatus,
   type DraftView,
+  type LimitsSnapshot,
 } from "@/components/outreach/outreach-results";
+
+/**
+ * Outcome of a single send attempt. The bulk-send loop branches on
+ * `kind`; the individual Send button uses it to open the dedup modal
+ * (on `recent-recipient`) or do nothing further.
+ */
+type SendOutcome =
+  | { kind: "sent" }
+  | { kind: "hourly-cap"; nextSlotAt: string | null }
+  | { kind: "daily-cap"; daily: LimitsSnapshot["daily"] }
+  | { kind: "recent-recipient"; conflict: DedupPrompt["conflict"] }
+  | { kind: "error"; message: string };
+
+/**
+ * Conservative defaults used to fill the half of a LimitsSnapshot the
+ * server didn't include in a safeguard error response. The server
+ * always sends back the *relevant* half (e.g. `hourly` on a 429), so
+ * the other half is whatever the client already has — these fallbacks
+ * only matter on the very first send when `limits === null` and an
+ * error returns mid-way through fetching the initial snapshot.
+ */
+const FALLBACK_HOURLY: LimitsSnapshot["hourly"] = {
+  used: 0,
+  cap: 50,
+  remaining: 50,
+  nextSlotAt: null,
+  resetsAt: new Date(Date.now() + 60 * 60 * 1000).toISOString(),
+};
+const FALLBACK_DAILY: LimitsSnapshot["daily"] = {
+  used: 0,
+  cap: null,
+  remaining: null,
+  nextSlotAt: null,
+  resetsAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+  planName: "Trial",
+};
 
 export type SelectableDonor = {
   id: string;
@@ -182,6 +221,56 @@ export function OutreachClient({
 
   const [progress, setProgress] = useState({ current: 0, total: 0 });
   const [drafts, setDrafts] = useState<DraftView[]>([]);
+
+  // ─── Send-pacing state ─────────────────────────────────────────────
+  // `limits` mirrors the server's hourly + daily counters. Refreshed
+  // after every successful send (the route bundles the post-send state)
+  // and on initial mount via /api/outreach/limits. Bulk send is driven
+  // by `bulkSendState`; a fired 429 sets it to `paused-cap` and a
+  // setTimeout schedules the auto-resume at `resumeAt`.
+  const [limits, setLimits] = useState<LimitsSnapshot | null>(null);
+  const [bulkSendState, setBulkSendState] = useState<BulkSendState>({
+    kind: "idle",
+  });
+  const [dedupPrompt, setDedupPrompt] = useState<DedupPrompt | null>(null);
+
+  // Mutable refs feeding the bulk-send loop. Ref-based so the async
+  // iterator reads the latest drafts/limits without needing to be
+  // recreated on every render.
+  const draftsRef = useRef<DraftView[]>([]);
+  draftsRef.current = drafts;
+  const bulkAbortRef = useRef<{ aborted: boolean }>({ aborted: false });
+  const bulkResumeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Fetch initial limits when results mount (one-shot — subsequent
+  // updates come back inline from each /send response).
+  useEffect(() => {
+    if (step !== "results") return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch("/api/outreach/limits");
+        if (!res.ok || cancelled) return;
+        const body = (await res.json()) as LimitsSnapshot;
+        setLimits(body);
+      } catch {
+        // Best-effort — the UI gracefully degrades to "limits unknown".
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [step]);
+
+  // Clear scheduled resume on unmount so a stale timer doesn't fire
+  // after the user navigates away.
+  useEffect(() => {
+    return () => {
+      if (bulkResumeTimerRef.current) {
+        clearTimeout(bulkResumeTimerRef.current);
+      }
+    };
+  }, []);
 
   const reset = useCallback(() => {
     setStep("setup");
@@ -391,11 +480,30 @@ export function OutreachClient({
     [],
   );
 
-  /** Send a single draft via Resend. The caller passes the draft id +
-   *  index directly. Aggressively diagnoses any failure mode (network,
-   *  4xx/5xx, non-JSON body) so future debugging doesn't end up staring
-   *  at an empty `{}` in the console. */
-  const sendDraft = useCallback(async (draftId: string, index: number) => {
+  // Delay between sends inside the bulk loop. Fast enough that 50 sends
+  // hit the hourly cap (which triggers the auto-pause), slow enough to
+  // avoid hammering the API + tripping any per-second protections at
+  // the Resend layer. Tuned for the ~50-message hour case.
+  const BULK_INTERVAL_MS = 4_000;
+
+  /**
+   * Send a single draft via Resend. The caller passes the draft id +
+   * index. Returns an outcome the bulk-send loop can react to (sent,
+   * rate-limited, daily-cap, dedup-conflict, error) — individual sends
+   * (single click) just open the dedup modal / surface errors inline.
+   *
+   * `options.confirmDuplicate` adds `?confirmDuplicate=true` to bypass
+   * the 7-day recipient dedup. Only set after the user confirms.
+   *
+   * `options.skipFirstSendNavigation` blocks the celebrate-page push
+   * during a bulk send — the user is mid-flow and shouldn't get yanked
+   * to /celebrate halfway through.
+   */
+  const sendDraft = useCallback(async (
+    draftId: string,
+    index: number,
+    options?: { confirmDuplicate?: boolean; skipFirstSendNavigation?: boolean },
+  ): Promise<SendOutcome> => {
     setDrafts((prev) =>
       prev.map((d, i) =>
         i === index && d.id === draftId
@@ -404,7 +512,8 @@ export function OutreachClient({
       ),
     );
 
-    const url = `/api/outreach/drafts/${encodeURIComponent(draftId)}/send`;
+    const search = options?.confirmDuplicate ? "?confirmDuplicate=true" : "";
+    const url = `/api/outreach/drafts/${encodeURIComponent(draftId)}/send${search}`;
 
     // Step 1 — issue the request. Separate try/catch so network failures
     // (DNS, server down, CORS) get distinct logging from server errors.
@@ -449,7 +558,7 @@ export function OutreachClient({
             : d,
         ),
       );
-      return;
+      return { kind: "error", message };
     }
 
     // Step 2 — read the body as text once, then try JSON. This means we
@@ -466,6 +575,68 @@ export function OutreachClient({
     }
 
     try {
+      // Structured safeguard responses — handled before the generic
+      // error path so we can update UI state (limits, modals) precisely.
+      const safeguard = parsed as
+        | {
+            code?: "hourly-cap" | "daily-cap" | "recent-recipient";
+            hourly?: LimitsSnapshot["hourly"];
+            daily?: LimitsSnapshot["daily"];
+            conflict?: DedupPrompt["conflict"];
+            error?: string;
+          }
+        | null;
+
+      if (res.status === 429 && safeguard?.code === "hourly-cap" && safeguard.hourly) {
+        // Rolling-hour pacing cap. The server told us when the next
+        // slot opens; the bulk loop schedules its own auto-resume.
+        setLimits((prev) => ({
+          hourly: safeguard.hourly!,
+          daily: prev?.daily ?? safeguard.daily ?? FALLBACK_DAILY,
+        }));
+        setDrafts((prev) =>
+          prev.map((d, i) =>
+            i === index && d.id === draftId
+              ? { ...d, sending: "idle", sendError: undefined }
+              : d,
+          ),
+        );
+        return { kind: "hourly-cap", nextSlotAt: safeguard.hourly.nextSlotAt };
+      }
+
+      if (res.status === 402 && safeguard?.code === "daily-cap" && safeguard.daily) {
+        setLimits((prev) => ({
+          hourly: prev?.hourly ?? safeguard.hourly ?? FALLBACK_HOURLY,
+          daily: safeguard.daily!,
+        }));
+        setDrafts((prev) =>
+          prev.map((d, i) =>
+            i === index && d.id === draftId
+              ? { ...d, sending: "idle", sendError: undefined }
+              : d,
+          ),
+        );
+        return { kind: "daily-cap", daily: safeguard.daily };
+      }
+
+      if (
+        res.status === 409 &&
+        safeguard?.code === "recent-recipient" &&
+        safeguard.conflict
+      ) {
+        setDrafts((prev) =>
+          prev.map((d, i) =>
+            i === index && d.id === draftId
+              ? { ...d, sending: "idle", sendError: undefined }
+              : d,
+          ),
+        );
+        return {
+          kind: "recent-recipient",
+          conflict: safeguard.conflict,
+        };
+      }
+
       if (!res.ok) {
         const serverMessage =
           parsed &&
@@ -512,6 +683,8 @@ export function OutreachClient({
           sentAt: string | null;
         };
         firstSend?: boolean;
+        hourly?: LimitsSnapshot["hourly"];
+        daily?: LimitsSnapshot["daily"];
       };
       setDrafts((prev) =>
         prev.map((d, i) =>
@@ -535,7 +708,10 @@ export function OutreachClient({
             : d,
         ),
       );
-      if (body.firstSend) {
+      if (body.hourly && body.daily) {
+        setLimits({ hourly: body.hourly, daily: body.daily });
+      }
+      if (body.firstSend && !options?.skipFirstSendNavigation) {
         // First-ever send earns a full celebration screen instead of a
         // toast that disappears. The /celebrate page renders the
         // starburst animation + "You're all set!" + Go to Dashboard.
@@ -545,6 +721,7 @@ export function OutreachClient({
         router.push("/celebrate");
         router.refresh();
       }
+      return { kind: "sent" };
     } catch (e) {
       const message = e instanceof Error ? e.message : "Send failed.";
       console.error(
@@ -558,8 +735,253 @@ export function OutreachClient({
             : d,
         ),
       );
+      return { kind: "error", message };
     }
   }, [router]);
+
+  /**
+   * Per-card Send button. Calls sendDraft once; on a dedup conflict
+   * opens the confirmation modal scoped to that draft (no bulk
+   * context). Other outcomes (sent / cap-hit / error) are already
+   * surfaced inline on the draft row by sendDraft itself.
+   */
+  const handleCardSend = useCallback(
+    async (draftId: string, index: number) => {
+      const outcome = await sendDraft(draftId, index);
+      if (outcome.kind === "recent-recipient") {
+        setDedupPrompt({
+          draftId,
+          draftIndex: index,
+          conflict: outcome.conflict,
+          bulk: false,
+        });
+      }
+    },
+    [sendDraft],
+  );
+
+  /**
+   * Bulk send loop. Iterates every unsent + ready draft, paces sends
+   * every BULK_INTERVAL_MS, and handles the three safeguard outcomes:
+   *
+   *   - hourly-cap → pause, schedule auto-resume at `nextSlotAt`
+   *   - daily-cap  → stop, surface blocking banner via bulkSendState
+   *   - dedup      → pause, open dedup modal; user confirms / skips
+   *
+   * `bulkAbortRef.current.aborted` lets the user (or daily cap) cancel
+   * the loop cleanly without a stale-closure trap.
+   */
+  const runBulkSend = useCallback(
+    async (startFromIndex: number) => {
+      const all = draftsRef.current;
+      const queue: number[] = [];
+      for (let i = startFromIndex; i < all.length; i++) {
+        const d = all[i];
+        if (d.status !== "ready") continue;
+        if (!d.donorEmail) continue;
+        if (
+          d.delivery &&
+          ["SENT", "OPENED", "REPLIED", "BOUNCED"].includes(d.delivery.status)
+        ) {
+          continue;
+        }
+        queue.push(i);
+      }
+      const total = queue.length;
+      if (total === 0) {
+        setBulkSendState({ kind: "idle" });
+        return;
+      }
+
+      let sent = 0;
+      let failed = 0;
+      bulkAbortRef.current = { aborted: false };
+
+      for (let q = 0; q < queue.length; q++) {
+        if (bulkAbortRef.current.aborted) {
+          setBulkSendState({ kind: "stopped", sent, total });
+          return;
+        }
+        const draftIdx = queue[q];
+        const draft = draftsRef.current[draftIdx];
+        setBulkSendState({
+          kind: "running",
+          current: q + 1,
+          total,
+          currentDraftIndex: draftIdx,
+          currentRecipient: draft?.donorName ?? null,
+        });
+        const outcome = await sendDraft(draft.id, draftIdx, {
+          skipFirstSendNavigation: true,
+        });
+
+        if (outcome.kind === "sent") {
+          sent++;
+        } else if (outcome.kind === "hourly-cap") {
+          // Pause + schedule auto-resume at the next slot.
+          const resumeAt = outcome.nextSlotAt;
+          setBulkSendState({
+            kind: "paused-cap",
+            sent,
+            total,
+            resumeAt,
+            remaining: queue.length - q,
+          });
+          if (!resumeAt) return; // Defensive — shouldn't happen.
+          const delayMs = Math.max(
+            1_000,
+            new Date(resumeAt).getTime() - Date.now() + 500,
+          );
+          await new Promise<void>((resolve) => {
+            bulkResumeTimerRef.current = setTimeout(() => resolve(), delayMs);
+          });
+          if (bulkAbortRef.current.aborted) {
+            setBulkSendState({ kind: "stopped", sent, total });
+            return;
+          }
+          // Retry this draft on resume.
+          q--;
+          continue;
+        } else if (outcome.kind === "daily-cap") {
+          setBulkSendState({
+            kind: "blocked-daily",
+            sent,
+            total,
+            daily: outcome.daily,
+          });
+          return;
+        } else if (outcome.kind === "recent-recipient") {
+          // Pause the loop, surface the confirm modal. Resolution comes
+          // back through handleConfirmDedup / handleSkipDedup which call
+          // back into runBulkSend or advance the queue.
+          setBulkSendState({
+            kind: "paused-dedup",
+            sent,
+            total,
+            queueRemaining: queue.slice(q),
+          });
+          setDedupPrompt({
+            draftId: draft.id,
+            draftIndex: draftIdx,
+            conflict: outcome.conflict,
+            bulk: true,
+          });
+          return;
+        } else {
+          failed++;
+        }
+
+        // Inter-send delay. Skipped after the last item so the "done"
+        // state lands immediately.
+        if (q < queue.length - 1) {
+          await new Promise<void>((resolve) => {
+            setTimeout(resolve, BULK_INTERVAL_MS);
+          });
+        }
+      }
+
+      setBulkSendState({ kind: "done", sent, failed, total });
+    },
+    [sendDraft],
+  );
+
+  const onSendAll = useCallback(() => {
+    void runBulkSend(0);
+  }, [runBulkSend]);
+
+  const onStopBulk = useCallback(() => {
+    bulkAbortRef.current.aborted = true;
+    if (bulkResumeTimerRef.current) {
+      clearTimeout(bulkResumeTimerRef.current);
+      bulkResumeTimerRef.current = null;
+    }
+    setBulkSendState((prev) => {
+      if (prev.kind === "running" || prev.kind === "paused-cap") {
+        const total =
+          "total" in prev ? prev.total : 0;
+        const sent = "sent" in prev ? prev.sent ?? 0 : 0;
+        return { kind: "stopped", sent, total };
+      }
+      return { kind: "idle" };
+    });
+  }, []);
+
+  /**
+   * Dedup modal confirm — bypass the 7-day check by retrying with
+   * confirmDuplicate=true. In bulk context, resume the loop afterwards
+   * from the next draft.
+   */
+  const onConfirmDedup = useCallback(async () => {
+    const prompt = dedupPrompt;
+    if (!prompt) return;
+    setDedupPrompt(null);
+
+    const outcome = await sendDraft(prompt.draftId, prompt.draftIndex, {
+      confirmDuplicate: true,
+      skipFirstSendNavigation: prompt.bulk,
+    });
+
+    if (prompt.bulk) {
+      // Recover bulk state — resume from the draft after this one if
+      // we were paused mid-loop. The earlier setBulkSendState left the
+      // queue snapshot inside `paused-dedup`.
+      if (bulkAbortRef.current.aborted) return;
+      // If the confirm send hit another safeguard, route that outcome
+      // through the same handler that runs inside runBulkSend — but
+      // here we already updated UI; simplest: restart bulk from the
+      // next available draft.
+      if (outcome.kind === "sent" || outcome.kind === "error") {
+        await runBulkSend(prompt.draftIndex + 1);
+      } else if (outcome.kind === "hourly-cap") {
+        // Same auto-pause behavior as inside runBulkSend.
+        const resumeAt = outcome.nextSlotAt;
+        if (resumeAt) {
+          const delayMs = Math.max(
+            1_000,
+            new Date(resumeAt).getTime() - Date.now() + 500,
+          );
+          await new Promise<void>((resolve) => {
+            bulkResumeTimerRef.current = setTimeout(() => resolve(), delayMs);
+          });
+        }
+        await runBulkSend(prompt.draftIndex);
+      } else if (outcome.kind === "daily-cap") {
+        setBulkSendState({
+          kind: "blocked-daily",
+          sent: 0,
+          total: 0,
+          daily: outcome.daily,
+        });
+      }
+    }
+  }, [dedupPrompt, runBulkSend, sendDraft]);
+
+  /** Skip = don't send this draft; advance the bulk queue. Bulk only. */
+  const onSkipDedup = useCallback(async () => {
+    const prompt = dedupPrompt;
+    if (!prompt) return;
+    setDedupPrompt(null);
+    if (prompt.bulk) {
+      await runBulkSend(prompt.draftIndex + 1);
+    }
+  }, [dedupPrompt, runBulkSend]);
+
+  /** Cancel = close modal, abort bulk loop entirely. */
+  const onCancelDedup = useCallback(() => {
+    const wasBulk = dedupPrompt?.bulk;
+    setDedupPrompt(null);
+    if (wasBulk) {
+      setBulkSendState((prev) =>
+        prev.kind === "paused-dedup"
+          ? { kind: "stopped", sent: prev.sent, total: prev.total }
+          : prev,
+      );
+    }
+  }, [dedupPrompt]);
+
+  const dismissBulkSummary = useCallback(() => {
+    setBulkSendState({ kind: "idle" });
+  }, []);
 
   // ─── Status polling ──────────────────────────────────────────────────
   // Refreshes delivery / open / click / bounce data from the server every
@@ -700,9 +1122,18 @@ export function OutreachClient({
       orgName={config.orgName}
       onRegenerate={regenerate}
       onUpdateDraft={updateDraft}
-      onSendDraft={sendDraft}
+      onSendDraft={handleCardSend}
       onStartOver={reset}
       onboardingActive={onboardingActive}
+      limits={limits}
+      bulkSendState={bulkSendState}
+      onSendAll={onSendAll}
+      onStopBulk={onStopBulk}
+      onDismissBulkSummary={dismissBulkSummary}
+      dedupPrompt={dedupPrompt}
+      onConfirmDedup={onConfirmDedup}
+      onSkipDedup={onSkipDedup}
+      onCancelDedup={onCancelDedup}
     />
   );
 }
