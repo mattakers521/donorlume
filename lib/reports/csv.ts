@@ -57,7 +57,7 @@ export function buildReportCsv(report: ReportData): string {
   // ─── Overview ───
   lines.push(row("OVERVIEW"));
   lines.push(row("Metric", "Value"));
-  lines.push(row("Total prospects saved", report.overview.prospectsSaved));
+  lines.push(row("Total funders saved", report.overview.prospectsSaved));
   lines.push(row("Total donors scored", report.overview.donorsScored));
   lines.push(row("Total outreach sent", report.overview.outreachSent));
   lines.push(row("Overall open rate", formatPct(report.overview.openRate)));
@@ -138,7 +138,7 @@ export function buildReportCsv(report: ReportData): string {
   lines.push("");
 
   // ─── Prospect Pipeline ───
-  lines.push(row("PROSPECT PIPELINE"));
+  lines.push(row("FUNDER PIPELINE"));
   lines.push(row("Stage", "Count", "Total revenue (annual)"));
   for (const stage of report.pipeline) {
     lines.push(

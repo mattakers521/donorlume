@@ -23,7 +23,7 @@ export type FaqItem = {
 
 export const FAQ_CATEGORIES: { key: FaqCategory; label: string }[] = [
   { key: "getting-started", label: "Getting Started" },
-  { key: "prospect-discovery", label: "Prospect Discovery" },
+  { key: "prospect-discovery", label: "Find Funders" },
   { key: "lapsed-scoring", label: "Lapsed Donor Scoring" },
   { key: "ai-outreach", label: "AI Outreach" },
   { key: "cohorts", label: "Donor Segments" },
@@ -64,16 +64,16 @@ export const FAQS: FaqItem[] = [
     a: "Go to Settings → Team Members, click Invite Member, enter your teammate's email, and pick a role (Owner, Admin, Member, or Viewer). They'll receive a branded email invitation that expires in 7 days. Each plan has a seat allowance — Starter includes 2 seats, Growth 5, Scale unlimited — and pending invitations count toward that cap until they're accepted or revoked. You can manage seats and see your remaining allowance at /settings/team.",
   },
 
-  // ─── Prospect Discovery ───
+  // ─── Find Funders ───
   {
     category: "prospect-discovery",
-    q: "Where does prospect data come from?",
-    a: "Prospect Discovery searches public IRS 990 and 990-PF filings — the same data anyone can pull from the IRS. We make it searchable, surface revenue/assets/grants/officers, and link to the actual filing PDFs. We don't scrape, broker, or buy personal data.",
+    q: "Where does funder data come from?",
+    a: "Find Funders searches public IRS 990 and 990-PF filings — the same data anyone can pull from the IRS. We make it searchable, surface revenue/assets/grants/officers, and link to the actual filing PDFs. We don't scrape, broker, or buy personal data.",
   },
   {
     category: "prospect-discovery",
     q: "How do I save a foundation to my pipeline?",
-    a: "Click the bookmark icon on any search result or detail page. Saved prospects appear on your /dashboard and persist for your whole org — anyone on your team can see and act on them.",
+    a: "Click the bookmark icon on any search result or detail page. Saved funders appear on your /dashboard and persist for your whole org — anyone on your team can see and act on them.",
   },
   {
     category: "prospect-discovery",

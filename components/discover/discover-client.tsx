@@ -169,7 +169,7 @@ export function DiscoverClient({ initialSaved }: Props) {
           toast({
             kind: "onboarding",
             title: "Step complete!",
-            body: "You've saved your first prospect.",
+            body: "You've saved your first funder.",
             action: { label: "Continue setup", href: "/dashboard" },
           });
           router.refresh();
@@ -1182,7 +1182,7 @@ function SaveToPipelineButton({
       }}
     >
       <Bookmark size={size === "large" ? 18 : 15} strokeWidth={2.4} />
-      {size === "large" ? "Save This Prospect" : "Save to Pipeline"}
+      {size === "large" ? "Save This Funder" : "Save to Pipeline"}
     </button>
   );
 }
@@ -1236,7 +1236,7 @@ function EmptySavedHelper() {
         <strong style={{ fontWeight: 800, color: C.amberDark }}>
           Save to Pipeline
         </strong>{" "}
-        to start building your prospect list.
+        to start building your funder list.
       </p>
     </div>
   );
@@ -1254,7 +1254,7 @@ function DiscoverOnboardingBanner() {
   return (
     <div
       role="note"
-      aria-label="Getting started with prospect discovery"
+      aria-label="Getting started with finding funders"
       style={{
         position: "relative",
         marginBottom: 24,

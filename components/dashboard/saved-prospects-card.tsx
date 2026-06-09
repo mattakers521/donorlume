@@ -38,7 +38,7 @@ export function SavedProspectsCard({ prospects, total }: Props) {
             gap: 10,
           }}
         >
-          <Target size={18} color={C.amber} /> Saved Prospects
+          <Target size={18} color={C.amber} /> Saved Funders
         </h3>
         <Link
           href="/discover"

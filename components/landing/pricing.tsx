@@ -35,7 +35,7 @@ const PLANS: Plan[] = [
       "Up to 2,500 donor records",
       "2 users",
       "Smart Segments (auto-classification)",
-      "Prospect Discovery",
+      "Find Funders",
       "Lapsed Donor Scoring",
       "50 AI outreach emails per month",
       "Email support",

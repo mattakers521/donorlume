@@ -121,7 +121,7 @@ export default async function ReportsPage({
           }}
         >
           <MetricTile
-            label="Prospects saved"
+            label="Funders saved"
             value={fmtCount(report.overview.prospectsSaved)}
             sub={
               <span
@@ -399,8 +399,8 @@ export default async function ReportsPage({
 
       {/* ─── Prospect Pipeline ─── */}
       <Section
-        title="Prospect Pipeline"
-        sub="Funnel of saved foundations by stage. Revenue is summed from each prospect's most recent IRS filing."
+        title="Funder Pipeline"
+        sub="Funnel of saved foundations by stage. Revenue is summed from each funder's most recent IRS filing."
       >
         <div
           style={{

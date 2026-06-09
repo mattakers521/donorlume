@@ -12,7 +12,7 @@ import {
 import { C, shadow } from "@/lib/design";
 
 const ACTIONS: { label: string; Icon: LucideIcon; href: string }[] = [
-  { label: "Search for prospects", Icon: Search, href: "/discover" },
+  { label: "Find funders", Icon: Search, href: "/discover" },
   { label: "Upload donor list", Icon: Upload, href: "/lapsed" },
   { label: "Generate outreach", Icon: Sparkles, href: "/outreach/new" },
 ];

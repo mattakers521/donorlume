@@ -30,7 +30,7 @@ const PATHS: Path[] = [
     iconBg: C.orangeLight,
     title: "I want to understand and activate my donor base.",
     subtitle:
-      "Uncover segments, score lapsed donors, find new prospects, and build a real pipeline.",
+      "Uncover segments, score lapsed donors, find new funders, and build a real pipeline.",
     cta: "Get Started — Donor Intelligence",
     href: "/signup?path=donors",
   },

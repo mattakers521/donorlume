@@ -114,7 +114,7 @@ export function TopBar({ onOpenMobileNav }: Props) {
           }}
         >
           <Search size={15} />
-          Search prospects, donors…
+          Search funders, donors…
         </div>
 
         {/* Compact search icon — mobile only */}

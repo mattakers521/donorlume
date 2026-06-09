@@ -100,7 +100,7 @@ export default async function DashboardPage() {
         }}
       >
         <KpiCard
-          label="Saved Prospects"
+          label="Saved Funders"
           value={prospectCount > 0 ? String(prospectCount) : "0"}
           sub={
             prospectCount > 0

@@ -419,7 +419,7 @@ function EmptyState({
           fontWeight: 500,
         }}
       >
-        Ask anything about uploading donors, searching prospects, building
+        Ask anything about uploading donors, finding funders, building
         segments, or running outreach campaigns.
       </p>
       <div

@@ -10,7 +10,7 @@ type QA = { q: string; a: string };
 const FAQ: QA[] = [
   {
     q: "What is DonorLume?",
-    a: "DonorLume is a donor intelligence platform for nonprofits. It automatically classifies your donors into meaningful segments, scores them for action, discovers new funding prospects, and generates personalized outreach — so you always know who to talk to, what to say, and when.",
+    a: "DonorLume is a donor intelligence platform for nonprofits. It automatically classifies your donors into meaningful segments, scores them for action, discovers new funders, and generates personalized outreach — so you always know who to talk to, what to say, and when.",
   },
   {
     q: "What are donor segments?",
@@ -25,8 +25,8 @@ const FAQ: QA[] = [
     a: "Any kind. Individual donors, corporate sponsors, foundation funders, monthly sustainers, gala attendees, volunteers who also give, board members — any donor or supporter in your CRM. Upload them all and DonorLume sorts them into actionable segments.",
   },
   {
-    q: "Where does the prospect data come from?",
-    a: "Prospect Discovery searches publicly available IRS 990 and 990-PF filings. This is the same data available to anyone through the IRS — we make it searchable and actionable. We don't scrape, buy, or broker personal data.",
+    q: "Where does the funder data come from?",
+    a: "Find Funders searches publicly available IRS 990 and 990-PF filings. This is the same data available to anyone through the IRS — we make it searchable and actionable. We don't scrape, buy, or broker personal data.",
   },
   {
     q: "How does the AI outreach work?",

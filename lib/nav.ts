@@ -46,7 +46,7 @@ export const ADMIN_NAV_ITEM: NavItem = {
 /** Primary nav (top of sidebar) — matches the order in donorluma-app.jsx:703. */
 export const NAV: NavItem[] = [
   { id: "dashboard", label: "Dashboard", path: "/dashboard", Icon: LayoutDashboard },
-  { id: "discover", label: "Prospect Discovery", path: "/discover", Icon: Search },
+  { id: "discover", label: "Find Funders", path: "/discover", Icon: Search },
   { id: "donors", label: "Donor Intelligence", path: "/donors", Icon: Heart },
   { id: "lapsed", label: "Lapsed Reactivation", path: "/lapsed", Icon: RefreshCw },
   { id: "cohorts", label: "Donor Segments", path: "/cohorts", Icon: Layers },
@@ -126,7 +126,7 @@ export const PAGE_TITLES: Record<string, { title: string; sub?: string }> = {
     sub: "DonorLume operator console — usage, signups, and exports.",
   },
   "/discover": {
-    title: "Prospect Discovery",
+    title: "Find Funders",
     sub: "Search IRS 990 filings to find aligned foundations.",
   },
   "/donors": { title: "Donor Intelligence" },

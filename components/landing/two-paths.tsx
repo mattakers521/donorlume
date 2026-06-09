@@ -19,7 +19,7 @@ const PATHS: Path[] = [
     iconBg: C.amberLight,
     label: "Path 01 · Acquire",
     heading: "Find them before your competitors do.",
-    body: "Find foundations that fund causes like yours. Surface new prospects. Build a pipeline you can actually see.",
+    body: "Find foundations that fund causes like yours. Surface new funders. Build a pipeline you can actually see.",
   },
   {
     Icon: LifeBuoy,

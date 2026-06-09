@@ -40,7 +40,7 @@ export function welcomeEmail({
       title: "Here's what to do first",
       items: [
         {
-          title: "Search for a prospect",
+          title: "Find a funder",
           body: "Find a foundation aligned with your mission in seconds — we pull from every 990 filing the IRS has on record.",
         },
         {

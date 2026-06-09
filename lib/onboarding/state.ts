@@ -107,11 +107,11 @@ export const getOnboardingState = cache(
       },
       {
         key: "prospects",
-        title: "Search for your first prospect",
+        title: "Find your first funder",
         body: "Search public 990 filings — so you can build a pipeline of foundations that already fund work like yours.",
         cta: "Open Discover",
         href: "/discover",
-        completedToast: "You've saved your first prospect.",
+        completedToast: "You've saved your first funder.",
         done: prospectCount > 0,
       },
       // Step 2's copy varies on Organization.signupPath. Event-path
