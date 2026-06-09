@@ -650,7 +650,7 @@ export function DonorsClient({
                       letterSpacing: 0.5,
                     }}
                   >
-                    Cohorts
+                    Segments
                   </th>
                   <th
                     style={{
@@ -1338,7 +1338,7 @@ function UploadHistorySection({
               <UploadHeader label="Uploaded" />
               <UploadHeader label="By" />
               <UploadHeader label="Records" align="right" />
-              <UploadHeader label="Cohorts" align="right" />
+              <UploadHeader label="Segments" align="right" />
               <th style={{ width: 36 }} />
             </tr>
           </thead>

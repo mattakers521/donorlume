@@ -306,16 +306,16 @@ export default async function ReportsPage({
 
       {/* ─── Cohort Health ─── */}
       <Section
-        title="Cohort Health"
+        title="Segment Health"
         sub={
           range === "all_time"
             ? "Trend isn't shown for All Time — every assignment counts as in-range."
-            : "Cohorts that took on new members in this range are flagged Growing."
+            : "Segments that took on new members in this range are flagged Growing."
         }
       >
         {report.cohorts.length === 0 ? (
           <EmptyState
-            message="Upload a donor list to populate cohort health."
+            message="Upload a donor list to populate segment health."
             href="/lapsed"
             cta="Upload donors"
           />
@@ -339,7 +339,7 @@ export default async function ReportsPage({
               >
                 <thead>
                   <tr style={{ backgroundColor: C.bg }}>
-                    <Th>Cohort</Th>
+                    <Th>Segment</Th>
                     <ThRight>Members</ThRight>
                     <ThRight>Lifetime value</ThRight>
                     <ThRight>Avg score</ThRight>

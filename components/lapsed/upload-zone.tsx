@@ -436,8 +436,8 @@ function PreviewPanel({
             margin: "0 0 22px",
           }}
         >
-          Each unique value becomes its own cohort. Uncheck any column you
-          don&rsquo;t want as cohorts — they&rsquo;ll still upload as donor
+          Each unique value becomes its own segment. Uncheck any column you
+          don&rsquo;t want as segments — they&rsquo;ll still upload as donor
           data, just not as segments.
         </p>
 
@@ -620,7 +620,7 @@ function PreviewPanel({
             </>
           ) : (
             <>
-              <Sparkles size={16} /> Continue with {selected.size} cohort
+              <Sparkles size={16} /> Continue with {selected.size} segment
               column{selected.size === 1 ? "" : "s"}
             </>
           )}
@@ -641,7 +641,7 @@ function PreviewPanel({
             fontFamily: "var(--font-jakarta), -apple-system, sans-serif",
           }}
         >
-          Skip — upload without engagement cohorts
+          Skip — upload without engagement segments
         </button>
       </div>
     </div>

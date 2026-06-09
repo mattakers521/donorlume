@@ -20,12 +20,12 @@ const FAMILY_DESC: Record<CohortFamily, string> = {
   GIVING_BEHAVIOR:
     "How much, how often, and how recently. Surfaces majors, mid-level, sustainers, and the lapsed.",
   ENGAGEMENT:
-    "Tag-derived cohorts from your CSV — events, board, volunteers, peer-to-peer fundraisers.",
+    "Tag-derived segments from your CSV — events, board, volunteers, peer-to-peer fundraisers.",
   ENTITY_TYPE:
     "Who's giving — individuals, corporations, foundations, donor-advised funds.",
   TRAJECTORY:
     "Computed movement — rising stars, churn risk, upgrade candidates. (Phase 3)",
-  CUSTOM: "Cohorts you've created yourself. (Phase 3)",
+  CUSTOM: "Segments you've created yourself. (Phase 3)",
 };
 
 const FAMILY_ORDER: CohortFamily[] = [
@@ -69,8 +69,8 @@ export default async function CohortsOverviewPage() {
           maxWidth: 760,
         }}
       >
-        Every donor in your org, classified into overlapping cohorts. Click
-        any cohort to see its members, value, and outreach options.
+        Every donor in your org, classified into overlapping segments. Click
+        any segment to see its members, value, and outreach options.
       </p>
 
       {grouped.map((group, gi) => (
@@ -163,7 +163,7 @@ function EmptyState() {
           fontFamily: "var(--font-instrument-serif), Georgia, serif",
         }}
       >
-        Upload a donor list to see your cohorts.
+        Upload a donor list to see your segments.
       </h2>
       <p
         style={{
@@ -175,7 +175,7 @@ function EmptyState() {
         }}
       >
         Once you upload a CSV, every donor is auto-classified into the
-        Giving Behavior and Entity Type cohorts. Engagement cohorts come
+        Giving Behavior and Entity Type segments. Engagement segments come
         from your CSV&rsquo;s tag columns.
       </p>
     </div>

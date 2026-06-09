@@ -44,7 +44,7 @@ export function CohortSnapshot({ topCohorts }: Props) {
             gap: 10,
           }}
         >
-          <Layers size={18} color={C.amber} /> Cohort Snapshot
+          <Layers size={18} color={C.amber} /> Segment Snapshot
         </h3>
         <Link
           href="/cohorts"
@@ -72,7 +72,7 @@ export function CohortSnapshot({ topCohorts }: Props) {
             lineHeight: 1.6,
           }}
         >
-          Upload a donor list to see cohorts here.
+          Upload a donor list to see segments here.
         </div>
       ) : (
         <div style={{ borderTop: `1px solid ${C.borderSubtle}` }}>

@@ -170,7 +170,7 @@ function EmptyState() {
           }}
         >
           Upload a CSV from any CRM and DonorLume will score every donor,
-          classify them into cohorts, and surface them in one searchable
+          classify them into segments, and surface them in one searchable
           place — no spreadsheet wrangling required.
         </p>
         <Link

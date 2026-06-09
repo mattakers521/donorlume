@@ -49,7 +49,7 @@ export const NAV: NavItem[] = [
   { id: "discover", label: "Prospect Discovery", path: "/discover", Icon: Search },
   { id: "donors", label: "Donor Intelligence", path: "/donors", Icon: Heart },
   { id: "lapsed", label: "Lapsed Reactivation", path: "/lapsed", Icon: RefreshCw },
-  { id: "cohorts", label: "Cohorts", path: "/cohorts", Icon: Layers },
+  { id: "cohorts", label: "Donor Segments", path: "/cohorts", Icon: Layers },
   { id: "outreach", label: "AI Outreach", path: "/outreach", Icon: Mail },
   { id: "reports", label: "Reports", path: "/reports", Icon: PieChart },
 ];
@@ -135,8 +135,8 @@ export const PAGE_TITLES: Record<string, { title: string; sub?: string }> = {
     sub: "Upload a donor list to identify reactivation candidates.",
   },
   "/cohorts": {
-    title: "Cohorts",
-    sub: "Every donor, classified into overlapping cohorts you can filter and act on.",
+    title: "Donor Segments",
+    sub: "Every donor, classified into overlapping segments you can filter and act on.",
   },
   "/outreach": {
     title: "AI Outreach Studio",
@@ -148,11 +148,11 @@ export const PAGE_TITLES: Record<string, { title: string; sub?: string }> = {
   },
   "/outreach/campaigns": {
     title: "Campaign Report",
-    sub: "Delivery, opens, clicks, and cohort performance.",
+    sub: "Delivery, opens, clicks, and segment performance.",
   },
   "/reports": {
     title: "Reports",
-    sub: "Board-ready snapshot of pipeline, outreach, and cohorts.",
+    sub: "Board-ready snapshot of pipeline, outreach, and segments.",
   },
   "/settings/billing": {
     title: "Billing",

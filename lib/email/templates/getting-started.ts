@@ -19,8 +19,8 @@ export function gettingStartedEmail({
     heading: `${firstName} — five minutes to your first scored list.`,
     paragraphs: [
       `Yesterday you set up ${orgName} on DonorLume — and the fastest way to feel the value is sitting one CSV upload away.`,
-      `Export a donor list from your CRM (Bloomerang, Salesforce, Little Green Light, Kindful, DonorPerfect) or event platform (OneCause, GiveButter, BetterUnite, Givesmart, Greater Giving) — anything that exports a spreadsheet works. DonorLume auto-detects column names, scores every lapsed donor 0–100 across recency / frequency / monetary / tenure, and groups them into cohorts you can filter and act on.`,
-      `If you’d rather see the flow before exporting a real list, click “Load Sample Data” on the Lapsed page — we ship a 9-donor demo CSV that exercises every cohort.`,
+      `Export a donor list from your CRM (Bloomerang, Salesforce, Little Green Light, Kindful, DonorPerfect) or event platform (OneCause, GiveButter, BetterUnite, Givesmart, Greater Giving) — anything that exports a spreadsheet works. DonorLume auto-detects column names, scores every lapsed donor 0–100 across recency / frequency / monetary / tenure, and groups them into donor segments you can filter and act on.`,
+      `If you’d rather see the flow before exporting a real list, click “Load Sample Data” on the Lapsed page — we ship a 9-donor demo CSV that exercises every segment.`,
     ],
     cta: {
       label: "Upload your first donor list →",

@@ -42,7 +42,7 @@ export default async function CohortDetailPage({
           fontWeight: 600,
         }}
       >
-        <ChevronLeft size={18} /> All cohorts
+        <ChevronLeft size={18} /> All segments
       </Link>
 
       {/* Header card */}
@@ -191,7 +191,7 @@ export default async function CohortDetailPage({
             fontSize: 14,
           }}
         >
-          No donors are currently in this cohort. Upload more donor data or
+          No donors are currently in this segment. Upload more donor data or
           adjust your CSV column mappings.
         </div>
       ) : (

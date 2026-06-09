@@ -54,7 +54,7 @@ export function CampaignCohortBreakdown({ rows, campaignMetrics }: Props) {
             margin: 0,
           }}
         >
-          Performance by cohort
+          Performance by segment
         </h3>
         <span
           style={{
@@ -86,7 +86,7 @@ export function CampaignCohortBreakdown({ rows, campaignMetrics }: Props) {
               textAlign: "center",
             }}
           >
-            + {overflow} more cohort{overflow === 1 ? "" : "s"} (sort by send
+            + {overflow} more segment{overflow === 1 ? "" : "s"} (sort by send
             volume — least-shipped omitted)
           </p>
         )}

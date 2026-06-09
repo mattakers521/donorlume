@@ -122,11 +122,11 @@ export default async function DashboardPage() {
           href="/lapsed"
         />
         <KpiCard
-          label="Cohorts Identified"
+          label="Donor Segments"
           value={populatedCohortCount > 0 ? String(populatedCohortCount) : "0"}
           sub={
             populatedCohortCount > 0
-              ? `${populatedCohortCount === 1 ? "cohort" : "cohorts"} with donors`
+              ? `${populatedCohortCount === 1 ? "segment" : "segments"} with donors`
               : "Upload to classify"
           }
           icon={<Layers size={22} color={C.purple} />}

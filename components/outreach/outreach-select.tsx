@@ -268,7 +268,7 @@ export function OutreachSelect({
               borderTop: `1px solid ${C.borderSubtle}`,
             }}
           >
-            No donors match the active cohort filter.
+            No donors match the active segment filter.
           </div>
         ) : (
           visibleDonors.map((d) => {

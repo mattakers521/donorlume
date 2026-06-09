@@ -100,7 +100,7 @@ export function CohortFilter({
           }}
         >
           <Filter size={14} />
-          Cohorts
+          Segments
           {selectedIds.size > 0 && (
             <span
               style={{

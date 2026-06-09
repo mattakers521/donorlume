@@ -26,7 +26,7 @@ export const FAQ_CATEGORIES: { key: FaqCategory; label: string }[] = [
   { key: "prospect-discovery", label: "Prospect Discovery" },
   { key: "lapsed-scoring", label: "Lapsed Donor Scoring" },
   { key: "ai-outreach", label: "AI Outreach" },
-  { key: "cohorts", label: "Cohorts" },
+  { key: "cohorts", label: "Donor Segments" },
   { key: "billing", label: "Billing & Account" },
   { key: "security", label: "Data & Security" },
 ];
@@ -36,7 +36,7 @@ export const FAQS: FaqItem[] = [
   {
     category: "getting-started",
     q: "What's the fastest way to see value from DonorLume?",
-    a: "Upload a CSV of your donor list at /lapsed (or hit \"Load Sample Data\" to preview). Within seconds you'll see every donor classified into cohorts, scored for reactivation, and ready for outreach. Most teams have their first AI-drafted email going out in under five minutes.",
+    a: "Upload a CSV of your donor list at /lapsed (or hit \"Load Sample Data\" to preview). Within seconds you'll see every donor classified into segments, scored for reactivation, and ready for outreach. Most teams have their first AI-drafted email going out in under five minutes.",
   },
   {
     category: "getting-started",
@@ -46,7 +46,7 @@ export const FAQS: FaqItem[] = [
   {
     category: "getting-started",
     q: "Can I use DonorLume with my event fundraising software?",
-    a: "Absolutely. DonorLume works with all major event fundraising platforms including OneCause, GiveButter, BetterUnite, Givesmart, and Greater Giving. Export your attendee, bidder, and donor data as a CSV after your event, upload it to DonorLume, and we'll automatically classify your event attendees into cohorts, score them for follow-up potential, and generate personalized outreach to convert one-time event donors into lifelong supporters.",
+    a: "Absolutely. DonorLume works with all major event fundraising platforms including OneCause, GiveButter, BetterUnite, Givesmart, and Greater Giving. Export your attendee, bidder, and donor data as a CSV after your event, upload it to DonorLume, and we'll automatically classify your event attendees into segments, score them for follow-up potential, and generate personalized outreach to convert one-time event donors into lifelong supporters.",
   },
   {
     category: "getting-started",
@@ -112,7 +112,7 @@ export const FAQS: FaqItem[] = [
   {
     category: "ai-outreach",
     q: "How does the AI generate emails?",
-    a: "Each draft is generated individually using Claude with the donor's actual giving history, cohort context, your organization's mission, and the tone you've selected. Two donors in the same campaign never get the same email — it's not a template engine.",
+    a: "Each draft is generated individually using Claude with the donor's actual giving history, segment context, your organization's mission, and the tone you've selected. Two donors in the same campaign never get the same email — it's not a template engine.",
   },
   {
     category: "ai-outreach",
@@ -127,29 +127,29 @@ export const FAQS: FaqItem[] = [
   {
     category: "ai-outreach",
     q: "How do I see open and click rates?",
-    a: "Visit /outreach to see every campaign with sent/open/click rates inline, or click a campaign for the full report — per-draft delivery state, cohort breakdown, and the rates compared to your other campaigns.",
+    a: "Visit /outreach to see every campaign with sent/open/click rates inline, or click a campaign for the full report — per-draft delivery state, segment breakdown, and the rates compared to your other campaigns.",
   },
 
-  // ─── Cohorts ───
+  // ─── Donor Segments ───
   {
     category: "cohorts",
-    q: "What's a cohort?",
-    a: "A meaningful grouping of donors — like \"Major Donors\", \"Lapsed Sustainers\", \"Gala Attendees\". DonorLume auto-classifies every donor across four dimensions (giving behavior, engagement, entity type, trajectory) the moment you upload. Cohorts overlap — one donor is often in five or more.",
+    q: "What's a donor segment?",
+    a: "A meaningful grouping of donors — like \"Major Donors\", \"Lapsed Sustainers\", \"Gala Attendees\". DonorLume auto-classifies every donor across four dimensions (giving behavior, engagement, entity type, trajectory) the moment you upload. Segments overlap — one donor is often in five or more.",
   },
   {
     category: "cohorts",
-    q: "How are donors assigned to cohorts?",
-    a: "Giving-behavior and entity-type cohorts use rules over your CSV data (e.g., totalGiven ≥ $1,000 + lastGift within 18 months = Major Donor). Engagement cohorts are pulled from columns you tag during upload (\"Gala Attendees\", \"Volunteers\", etc.). Trajectory cohorts (Rising Star, Churn Risk) ship in Phase 3.",
+    q: "How are donors assigned to segments?",
+    a: "Giving-behavior and entity-type segments use rules over your CSV data (e.g., totalGiven ≥ $1,000 + lastGift within 18 months = Major Donor). Engagement segments are pulled from columns you tag during upload (\"Gala Attendees\", \"Volunteers\", etc.). Trajectory segments (Rising Star, Churn Risk) ship in Phase 3.",
   },
   {
     category: "cohorts",
-    q: "Can I create custom cohorts?",
-    a: "Yes — engagement cohorts auto-create from any CSV column you mark as a cohort source during upload. Fully-custom rule-based cohorts (e.g., \"donors who gave to two campaigns last year\") are on the roadmap.",
+    q: "Can I create custom segments?",
+    a: "Yes — engagement segments auto-create from any CSV column you mark as a segment source during upload. Fully-custom rule-based segments (e.g., \"donors who gave to two campaigns last year\") are on the roadmap.",
   },
   {
     category: "cohorts",
-    q: "Why is a donor showing in multiple cohorts?",
-    a: "By design. A long-tenure $50K donor who came to the gala is a Major Donor AND a Gala Attendee AND a Legacy Prospect — the right outreach treats all three. Click any cohort badge on /lapsed to filter the table to just that intersection.",
+    q: "Why is a donor showing in multiple segments?",
+    a: "By design. A long-tenure $50K donor who came to the gala is a Major Donor AND a Gala Attendee AND a Legacy Prospect — the right outreach treats all three. Click any segment badge on /lapsed to filter the table to just that intersection.",
   },
 
   // ─── Billing & Account ───
@@ -188,7 +188,7 @@ export const FAQS: FaqItem[] = [
   {
     category: "security",
     q: "Can I export my data?",
-    a: "Donor-list export is on the roadmap. Today you can request an export by emailing support@donorlume.com and we'll deliver a CSV of every donor + cohort + outreach event we hold for your org within 48 hours. Billing history is exportable anytime via the Stripe Billing Portal.",
+    a: "Donor-list export is on the roadmap. Today you can request an export by emailing support@donorlume.com and we'll deliver a CSV of every donor + segment + outreach event we hold for your org within 48 hours. Billing history is exportable anytime via the Stripe Billing Portal.",
   },
   {
     category: "security",
