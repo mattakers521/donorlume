@@ -41,11 +41,21 @@ const TRIAL_DAYS = 7;
  * Re-inviting an existing email rotates the token instead of creating
  * a duplicate row (unique constraint on orgId+email).
  *
- * Authorization: any current member can invite. Restricting to
- * OWNER/ADMIN is a TODO — we'll add a role check here once we expose
- * a "demote to member" UI.
+ * Authorization: OWNER or ADMIN only. MEMBER and VIEWER roles cannot
+ * invite new teammates — otherwise read-only users could grant write
+ * access by creating new MEMBER accounts.
  */
 export const POST = withOrg(async (req, { auth }) => {
+  if (auth.orgRole !== "OWNER" && auth.orgRole !== "ADMIN") {
+    return NextResponse.json(
+      {
+        error:
+          "Only Owners and Admins can invite team members. Ask one of them to send the invite.",
+      },
+      { status: 403 },
+    );
+  }
+
   let payload: unknown;
   try {
     payload = await req.json();
@@ -214,8 +224,16 @@ async function sendInvite({
  * DELETE /api/team/invites?id={invitationId}
  *
  * Revokes a pending invitation. Verifies org ownership before delete.
+ * Same OWNER/ADMIN gate as invite creation.
  */
 export const DELETE = withOrg(async (req, { auth }) => {
+  if (auth.orgRole !== "OWNER" && auth.orgRole !== "ADMIN") {
+    return NextResponse.json(
+      { error: "Only Owners and Admins can revoke invitations." },
+      { status: 403 },
+    );
+  }
+
   const url = new URL(req.url);
   const id = url.searchParams.get("id");
   if (!id) {

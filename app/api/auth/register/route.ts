@@ -7,6 +7,7 @@ import { seedSystemCohorts } from "@/lib/cohorts/seed";
 import { sendWelcomeEmail } from "@/lib/email/transactional";
 import { notifyAdmin } from "@/lib/notifications/admin";
 import { prisma } from "@/lib/prisma";
+import { enforceRateLimit } from "@/lib/rate-limit";
 
 const registerSchema = z.object({
   email: z.string().email().toLowerCase(),
@@ -27,6 +28,12 @@ const registerSchema = z.object({
 });
 
 export async function POST(req: Request) {
+  // Rate limit: 5 signups per IP per hour. Stops casual fake-account
+  // spray + protects the welcome email + admin Slack ping from being
+  // weaponized for noise.
+  const limited = enforceRateLimit(req, "register", 5, 60 * 60 * 1000);
+  if (limited) return limited;
+
   let payload: unknown;
   try {
     payload = await req.json();

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { PROPUBLICA_BASE } from "@/lib/propublica";
+import { withOrg } from "@/lib/with-org";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -10,12 +11,13 @@ export const dynamic = "force-dynamic";
  *
  * Proxies ProPublica's organization-details endpoint by EIN.
  * Returns the raw payload (organization + filings_with_data).
+ *
+ * Gated behind `withOrg` so anonymous bots can't fan our origin onto
+ * the upstream API — the read-only public data is still available to
+ * any signed-in org member.
  */
-export async function GET(
-  _req: Request,
-  ctx: { params: Promise<{ ein: string }> },
-) {
-  const { ein } = await ctx.params;
+export const GET = withOrg<{ ein: string }>(async (_req, { params }) => {
+  const { ein } = await params;
   if (!/^\d{2}-?\d{7}$/.test(ein) && !/^\d+$/.test(ein)) {
     return NextResponse.json({ error: "Invalid EIN" }, { status: 400 });
   }
@@ -37,4 +39,4 @@ export async function GET(
     const message = e instanceof Error ? e.message : "Network error";
     return NextResponse.json({ error: message }, { status: 502 });
   }
-}
+});

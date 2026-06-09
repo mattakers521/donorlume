@@ -3,6 +3,7 @@ import bcrypt from "bcryptjs";
 import { z } from "zod";
 
 import { prisma } from "@/lib/prisma";
+import { enforceRateLimit } from "@/lib/rate-limit";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -26,6 +27,12 @@ const schema = z.object({
  * request a new email or check their network.
  */
 export async function POST(req: Request) {
+  // Rate limit: 10 attempts per IP per hour. Token search space (64
+  // hex chars) is unguessable, but limiting attempts prevents bulk
+  // probing in the unlikely event a token leaks via referrer/etc.
+  const limited = enforceRateLimit(req, "reset-password", 10, 60 * 60 * 1000);
+  if (limited) return limited;
+
   let payload: unknown;
   try {
     payload = await req.json();

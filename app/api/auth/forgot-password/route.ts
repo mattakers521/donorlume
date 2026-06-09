@@ -4,6 +4,7 @@ import { z } from "zod";
 
 import { sendPasswordResetEmail } from "@/lib/email/transactional";
 import { prisma } from "@/lib/prisma";
+import { enforceRateLimit } from "@/lib/rate-limit";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -35,6 +36,12 @@ const RESET_TOKEN_TTL_MS = 60 * 60 * 1000; // 1 hour
  * re-authenticates them across all of those memberships at once.
  */
 export async function POST(req: Request) {
+  // Rate limit: 5 requests / 15 min per IP. Beyond this we'd be
+  // emailing the same address repeatedly, which is both spammy and a
+  // signal of brute-force enumeration attempts.
+  const limited = enforceRateLimit(req, "forgot-password", 5, 15 * 60 * 1000);
+  if (limited) return limited;
+
   let payload: unknown;
   try {
     payload = await req.json();

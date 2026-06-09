@@ -12,11 +12,23 @@ import type { ReportData } from "@/lib/reports/data";
 /**
  * Escapes a single CSV cell. Quotes the value when it contains a
  * separator, quote, or newline; doubles internal quotes per RFC 4180.
+ *
+ * CSV-injection defense (CWE-1236): cells that begin with `=`, `+`,
+ * `-`, `@`, `\t`, or `\r` are interpreted as formulas by Excel /
+ * Google Sheets / Numbers. A malicious org name like `=cmd|'/c calc'!A1`
+ * could execute when the recipient opens the export. We neutralize
+ * the leading character with an apostrophe so the cell is rendered as
+ * literal text — the apostrophe is invisible in the rendered cell.
  */
+const FORMULA_PREFIXES = ["=", "+", "-", "@", "\t", "\r"];
+
 function escapeCell(value: string | number | null | undefined): string {
   if (value === null || value === undefined) return "";
-  const s = String(value);
+  let s = String(value);
   if (s.length === 0) return "";
+  if (FORMULA_PREFIXES.includes(s[0]!)) {
+    s = `'${s}`;
+  }
   if (/[",\n\r]/.test(s)) {
     return `"${s.replace(/"/g, '""')}"`;
   }

@@ -18,10 +18,22 @@ import {
   Divider,
 } from "@/components/auth-fields";
 
+/**
+ * Open-redirect defense: only accept relative paths (no scheme, no
+ * protocol-relative) for the post-login destination. Anything else
+ * (`https://evil.example.com/phishing`, `//evil.example.com`,
+ * `javascript:...`) collapses to the dashboard.
+ */
+function safeCallbackUrl(raw: string | null): string {
+  if (!raw) return "/dashboard";
+  if (raw.startsWith("/") && !raw.startsWith("//")) return raw;
+  return "/dashboard";
+}
+
 function LoginForm() {
   const router = useRouter();
   const params = useSearchParams();
-  const callbackUrl = params.get("callbackUrl") ?? "/dashboard";
+  const callbackUrl = safeCallbackUrl(params.get("callbackUrl"));
   const queryError = params.get("error");
   // ?reset=success is the redirect target of /api/auth/reset-password
   // — surface a confirmation banner so the user knows the new

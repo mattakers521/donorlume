@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import { getFromAddress, getResend } from "@/lib/email/resend";
+import { enforceRateLimit } from "@/lib/rate-limit";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -40,6 +41,11 @@ const escape = (s: string): string =>
  * deploy would show up as a 500 in the dashboard — intentional.
  */
 export async function POST(req: Request) {
+  // Rate limit: 5 messages per IP per hour. Prevents using us as a
+  // free relay to spam hello@ and protects our Resend sending quota.
+  const limited = enforceRateLimit(req, "contact", 5, 60 * 60 * 1000);
+  if (limited) return limited;
+
   let payload: unknown;
   try {
     payload = await req.json();

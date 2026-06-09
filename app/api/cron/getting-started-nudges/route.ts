@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 
+import { checkCronAuth } from "@/lib/cron-auth";
 import { sendGettingStartedNudge } from "@/lib/email/transactional";
 import { prisma } from "@/lib/prisma";
 
@@ -65,16 +66,3 @@ export async function GET(req: NextRequest) {
   });
 }
 
-function checkCronAuth(req: NextRequest): NextResponse | null {
-  const secret = process.env.CRON_SECRET?.trim();
-  if (!secret) {
-    // In dev with no CRON_SECRET set, allow any caller. Production
-    // deployment must set this.
-    return null;
-  }
-  const header = req.headers.get("authorization") ?? "";
-  const fromHeader = header.startsWith("Bearer ") ? header.slice(7) : "";
-  const fromQuery = req.nextUrl.searchParams.get("secret") ?? "";
-  if (fromHeader === secret || fromQuery === secret) return null;
-  return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-}

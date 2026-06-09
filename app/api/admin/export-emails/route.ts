@@ -66,12 +66,23 @@ export async function GET() {
 /**
  * RFC 4180 quoting: wrap any field that contains a comma, quote, or
  * line break in double quotes; double-up internal quotes. Empty
- * fields render as bare empty strings (no quoting required, but
- * we'd quote them too if they later contained commas).
+ * fields render as bare empty strings.
+ *
+ * CSV-injection defense (CWE-1236): prefix cells that start with `=`,
+ * `+`, `-`, `@`, `\t`, or `\r` with an apostrophe so spreadsheet
+ * software treats them as literal text instead of formulas. A user
+ * named `=cmd|'/c calc'!A1` would otherwise weaponize this export
+ * when the admin opens it.
  */
+const FORMULA_PREFIXES = ["=", "+", "-", "@", "\t", "\r"];
+
 function csvCell(value: string): string {
   if (value === "") return "";
-  const needsQuoting = /[",\r\n]/.test(value);
-  if (!needsQuoting) return value;
-  return `"${value.replace(/"/g, '""')}"`;
+  let s = value;
+  if (FORMULA_PREFIXES.includes(s[0]!)) {
+    s = `'${s}`;
+  }
+  const needsQuoting = /[",\r\n]/.test(s);
+  if (!needsQuoting) return s;
+  return `"${s.replace(/"/g, '""')}"`;
 }
