@@ -19,7 +19,7 @@ const PATHS: Path[] = [
     iconBg: C.amberLight,
     label: "Path 01 · Acquire",
     heading: "Find them before your competitors do.",
-    body: "Discover aligned foundations from public filings. Identify prospects who match your best donor profiles. Generate personalized first-touch outreach that references their interests, not just their name. Build a pipeline you can actually see and manage.",
+    body: "Discover aligned foundations. Surface prospects who match your best donors. Build a pipeline you can see.",
   },
   {
     Icon: LifeBuoy,
@@ -27,7 +27,7 @@ const PATHS: Path[] = [
     iconBg: C.orangeLight,
     label: "Path 02 · Retain",
     heading: "Stop the leaks. Win them back.",
-    body: "See which donors are drifting before they lapse. Identify which lapsed supporters are still giving to other organizations — they haven't stopped being generous, they've just stopped giving to you. Score every lapsed donor by reactivation likelihood and reach out with the right message at the right time.",
+    body: "They haven't stopped being generous. They've just stopped giving to you. We tell you who, why, and what to send.",
   },
 ];
 
@@ -170,7 +170,16 @@ export function LandingTwoPaths() {
           })}
         </div>
 
-        <div style={{ textAlign: "center", marginTop: 44 }}>
+        <div
+          style={{
+            textAlign: "center",
+            marginTop: 44,
+            display: "flex",
+            justifyContent: "center",
+            gap: 12,
+            flexWrap: "wrap",
+          }}
+        >
           <Link
             href="/signup"
             style={{
@@ -188,8 +197,26 @@ export function LandingTwoPaths() {
                 "0 12px 32px rgba(232,134,12,0.28), 0 4px 10px rgba(212,74,26,0.18)",
             }}
           >
-            Start Your Free Trial <ArrowRight size={17} />
+            See What&rsquo;s Hiding In Your Donor Data <ArrowRight size={17} />
           </Link>
+          <a
+            href="mailto:hello@donorlume.com?subject=Book%20a%20walkthrough"
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 8,
+              padding: "14px 28px",
+              borderRadius: 14,
+              backgroundColor: "transparent",
+              color: C.text,
+              border: `1.5px solid ${C.text}`,
+              fontSize: 15,
+              fontWeight: 700,
+              textDecoration: "none",
+            }}
+          >
+            Book a Walkthrough
+          </a>
         </div>
       </div>
     </section>

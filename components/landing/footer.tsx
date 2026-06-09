@@ -126,7 +126,7 @@ export function LandingFooter() {
                 maxWidth: 280,
               }}
             >
-              Cohort intelligence for nonprofits and charities. Built by
+              Donor intelligence for nonprofits and charities. Built by
               Vibrant Causes, LLC.
             </p>
           </div>

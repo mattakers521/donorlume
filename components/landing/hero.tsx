@@ -95,7 +95,7 @@ export function LandingHero() {
             marginBottom: 28,
           }}
         >
-          <Sparkles size={13} /> Cohort Intelligence for Nonprofits
+          <Sparkles size={13} /> Donor Intelligence for Nonprofits
         </div>
 
         <h1
@@ -126,15 +126,12 @@ export function LandingHero() {
             fontSize: 19,
             lineHeight: 1.6,
             color: C.textOnDarkBody,
-            maxWidth: 780,
+            maxWidth: 720,
             margin: "0 auto 40px",
             fontWeight: 500,
           }}
         >
-          DonorLume is the cohort intelligence platform that helps nonprofits
-          understand who their donors are, where they&rsquo;re moving, and
-          what to do next — for every segment, automatically. Stop treating
-          all donors the same. Start fundraising like you know them.
+          Stop treating all donors the same. Start fundraising like you know them.
         </p>
 
         <div
@@ -163,10 +160,10 @@ export function LandingHero() {
               transition: "transform 0.15s, box-shadow 0.15s",
             }}
           >
-            Get Started Free <ArrowRight size={18} />
+            See What&rsquo;s Hiding In Your Donor Data <ArrowRight size={18} />
           </Link>
           <a
-            href="#how-it-works"
+            href="mailto:hello@donorlume.com?subject=Book%20a%20walkthrough"
             style={{
               display: "inline-flex",
               alignItems: "center",
@@ -181,7 +178,7 @@ export function LandingHero() {
               border: "1px solid rgba(255,255,255,0.14)",
             }}
           >
-            See How It Works
+            Book a Walkthrough
           </a>
         </div>
 

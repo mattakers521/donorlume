@@ -16,9 +16,9 @@ const instrumentSerif = Instrument_Serif({
 });
 
 export const metadata: Metadata = {
-  title: "DonorLume — Cohort intelligence for nonprofits",
+  title: "DonorLume — Donor intelligence for nonprofits",
   description:
-    "Know your donors. Not just their names. DonorLume automatically classifies your donors into cohorts, scores them for action, discovers new funding prospects, and generates personalized outreach for every segment.",
+    "Know your donors. Not just their names. DonorLume automatically classifies your donors, scores them for action, discovers new funding prospects, and generates personalized outreach for every segment.",
 };
 
 export default function RootLayout({

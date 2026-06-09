@@ -96,23 +96,15 @@ export function LandingAbout() {
         >
           <p style={{ margin: 0 }}>
             DonorLume is built by{" "}
-            <strong style={{ color: C.text }}>Vibrant Causes, LLC</strong> —
-            a consulting firm that works with nonprofits and charities of
-            every size, without judgment. We started DonorLume because we
-            saw the same problem at every organization we worked with:
-            talented fundraisers stuck in reactive mode, rebuilding donor
-            segments in spreadsheets every quarter, staring at lapsed donor
-            reports without knowing who to call first.
+            <strong style={{ color: C.text }}>Vibrant Causes, LLC</strong>.
+            We saw the same problem at every nonprofit we worked with.
           </p>
           <p style={{ margin: 0 }}>
             They weren&rsquo;t bad at their jobs. They were drowning in
             data and starving for intelligence.
           </p>
           <p style={{ margin: 0 }}>
-            We built DonorLume to flip that equation. Not another
-            enterprise platform that costs more than your annual fund
-            goal. Not a CRM replacement. An intelligence layer that shows
-            you who your donors really are — and what to do next.
+            DonorLume flips that equation.
           </p>
         </div>
 

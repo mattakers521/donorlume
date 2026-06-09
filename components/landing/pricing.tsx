@@ -180,8 +180,7 @@ export function LandingPricing() {
               margin: 0,
             }}
           >
-            Start your free trial — you won&rsquo;t be charged until
-            your 14-day trial ends.
+            14 days free. No card required.
           </p>
         </div>
 
@@ -242,10 +241,7 @@ export function LandingPricing() {
             lineHeight: 1.7,
           }}
         >
-          All plans include: Smart Segments, Prospect Discovery, Lapsed
-          Donor Scoring, AI Outreach Studio, multi-tenant data isolation,
-          SSL encryption, and 99.9% uptime. Month-to-month billing. Cancel
-          anytime. Your data is always yours.
+          Month-to-month. Cancel anytime. Your data is always yours.
         </p>
       </div>
     </section>

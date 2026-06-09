@@ -10,7 +10,7 @@ type QA = { q: string; a: string };
 const FAQ: QA[] = [
   {
     q: "What is DonorLume?",
-    a: "DonorLume is a cohort intelligence platform for nonprofits. It automatically classifies your donors into meaningful segments, scores them for action, discovers new funding prospects, and generates personalized outreach — so you always know who to talk to, what to say, and when.",
+    a: "DonorLume is a donor intelligence platform for nonprofits. It automatically classifies your donors into meaningful segments, scores them for action, discovers new funding prospects, and generates personalized outreach — so you always know who to talk to, what to say, and when.",
   },
   {
     q: "What are donor cohorts?",

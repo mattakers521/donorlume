@@ -110,8 +110,7 @@ export function LandingContact() {
               marginInline: "auto",
             }}
           >
-            Send a note and we&rsquo;ll get back within one business day. If
-            you&rsquo;d rather see the product in action, book a demo.
+            We reply within one business day.
           </p>
         </div>
 

@@ -46,33 +46,11 @@ export function LandingProblem() {
             lineHeight: 1.7,
             color: C.textBody,
             fontWeight: 500,
-            margin: "0 0 20px",
+            margin: "0 0 24px",
           }}
         >
-          You have <strong style={{ color: C.text }}>gala attendees</strong>{" "}
-          who&rsquo;ve never made a second gift.{" "}
-          <strong style={{ color: C.text }}>Corporate sponsors</strong>{" "}
-          who haven&rsquo;t renewed.{" "}
-          <strong style={{ color: C.text }}>Monthly sustainers</strong>{" "}
-          quietly canceling.{" "}
-          <strong style={{ color: C.text }}>Major donors</strong> who
-          stopped giving but are funding three other nonprofits.{" "}
-          <strong style={{ color: C.text }}>First-time donors</strong> who
-          showed up once and vanished.
-        </p>
-        <p
-          style={{
-            fontSize: 18,
-            lineHeight: 1.7,
-            color: C.textBody,
-            fontWeight: 500,
-            margin: "0 0 20px",
-          }}
-        >
-          You know these groups exist. You probably have them sorted in a
-          spreadsheet somewhere — color-coded, half-updated, rebuilt from
-          scratch every quarter. Your CRM stores their data. It doesn&rsquo;t
-          tell you what to do with it.
+          Your CRM stores their data. It doesn&rsquo;t tell you what to do
+          with it.
         </p>
         <p
           style={{
@@ -83,9 +61,7 @@ export function LandingProblem() {
             margin: 0,
           }}
         >
-          DonorLume does. It automatically identifies your donor cohorts,
-          scores them, and tells you exactly who needs attention, what
-          kind, and when.
+          DonorLume does.
         </p>
       </div>
     </section>

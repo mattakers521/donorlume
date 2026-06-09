@@ -84,7 +84,7 @@ const DIMENSIONS: Dimension[] = [
 export function LandingCohorts() {
   return (
     <section
-      id="cohort-intelligence"
+      id="donor-intelligence"
       style={{
         padding: "88px 24px",
         backgroundColor: C.bg,
@@ -115,7 +115,7 @@ export function LandingCohorts() {
               marginBottom: 16,
             }}
           >
-            Cohort Intelligence
+            Donor Intelligence
           </div>
           <h2
             className="landing-section-h2"
@@ -139,9 +139,8 @@ export function LandingCohorts() {
               margin: 0,
             }}
           >
-            The moment you upload your data, DonorLume maps your donors
-            across four dimensions. You see your organization&rsquo;s
-            fundraising reality clearly for the first time.
+            Upload your data. See your fundraising reality clearly, for the
+            first time.
           </p>
         </div>
 

@@ -24,15 +24,15 @@ const MODULES: Module[] = [
     iconBg: "rgba(245,183,49,0.12)",
     number: "01",
     heading: "Your donors, organized in minutes.",
-    body: "Upload a CSV from any CRM. DonorLume auto-detects your columns and classifies every donor into the cohorts that matter — by giving behavior, by segment, and by trajectory. No manual tagging. No pivot tables. Just clarity.",
+    body: "Upload a CSV from any CRM. We classify every donor into the cohorts that matter — automatically.",
   },
   {
     Icon: BarChart3,
     iconColor: C.orange,
     iconBg: "rgba(212,74,26,0.12)",
     number: "02",
-    heading: "Know who to call first. For every cohort.",
-    body: "Our scoring engine analyzes every donor across four dimensions — recency, frequency, monetary value, and tenure — then layers on cohort-specific intelligence. A lapsed $50K gala attendee is a different conversation than a lapsed $25 sustainer.",
+    heading: "Know who to call first.",
+    body: "A lapsed $50K gala attendee is a different conversation than a lapsed $25 sustainer. We score for that.",
   },
   {
     Icon: Search,
@@ -40,7 +40,7 @@ const MODULES: Module[] = [
     iconBg: "rgba(245,183,49,0.12)",
     number: "03",
     heading: "Find funders aligned with your mission.",
-    body: "Search public IRS 990 filings to discover foundations and grantmakers already giving to causes like yours. See their revenue, assets, grant history, and actual tax filings. Save the best matches to your pipeline.",
+    body: "Search public IRS 990 filings to discover foundations already giving to causes like yours.",
   },
   {
     Icon: Mail,
@@ -48,7 +48,7 @@ const MODULES: Module[] = [
     iconBg: "rgba(175,82,222,0.14)",
     number: "04",
     heading: "Personalized outreach for every cohort.",
-    body: "Select donors from any cohort and generate outreach that references their actual giving history, their relationship with your organization, and your mission. A reactivation email reads completely differently from a renewal request — because it should.",
+    body: "A reactivation email reads completely differently from a renewal request — because it should.",
   },
 ];
 
@@ -106,8 +106,7 @@ export function LandingModules() {
               margin: 0,
             }}
           >
-            Four steps from CSV to a fundraising program that knows every
-            donor by name — and by cohort.
+            Four steps from CSV to a fundraising program that knows every donor.
           </p>
         </div>
 

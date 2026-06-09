@@ -20,7 +20,7 @@ const PATHS: Path[] = [
     iconBg: C.amberLight,
     title: "I have a fundraising event coming up (or just had one).",
     subtitle:
-      "Upload your event attendee data and know who to follow up with first — within minutes of your event ending.",
+      "Know who to follow up with first — within minutes of your event ending.",
     cta: "Get Started — Event Follow-Up",
     href: "/signup?path=event",
   },
@@ -30,7 +30,7 @@ const PATHS: Path[] = [
     iconBg: C.orangeLight,
     title: "I want to understand and activate my donor base.",
     subtitle:
-      "Upload your full donor history to uncover cohorts, score lapsed donors, find new prospects, and build a real pipeline.",
+      "Uncover cohorts, score lapsed donors, find new prospects, and build a real pipeline.",
     cta: "Get Started — Donor Intelligence",
     href: "/signup?path=donors",
   },
