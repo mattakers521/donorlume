@@ -20,6 +20,13 @@ export type OnboardingStep = {
   /** Friendly past-tense phrase used by step-complete toasts. */
   completedToast: string;
   done: boolean;
+  /**
+   * Optional steps render an "Optional" badge in the checklist and
+   * don't block the overall "all required complete" computation. The
+   * user can still tick them off — they just aren't blockers for
+   * progress-bar dismissal or the next-step ordering.
+   */
+  optional?: boolean;
 };
 
 export type OnboardingState = {
@@ -90,11 +97,16 @@ export const getOnboardingState = cache(
 
     const profileDone =
       !!org.name?.trim() && !!org.mission?.trim();
-    const step4Done = campaignCount > 0;
+    const outreachDone = campaignCount > 0;
     const sendHref = latestCampaign
       ? `/outreach/campaigns/${latestCampaign.id}?onboarding=1`
       : "/outreach";
 
+    // Order: profile → donors → outreach → prospects (optional) → send.
+    // Funder discovery moved out of the critical path because most new
+    // orgs activate via their existing donor list, not 990 prospecting;
+    // marking it optional keeps it on the checklist without blocking
+    // the progress bar from clearing.
     const steps: OnboardingStep[] = [
       {
         key: "profile",
@@ -105,16 +117,7 @@ export const getOnboardingState = cache(
         completedToast: "You've filled out your org profile.",
         done: profileDone,
       },
-      {
-        key: "prospects",
-        title: "Find your first funder",
-        body: "Search public 990 filings — so you can build a pipeline of foundations that already fund work like yours.",
-        cta: "Open Discover",
-        href: "/discover",
-        completedToast: "You've saved your first funder.",
-        done: prospectCount > 0,
-      },
-      // Step 2's copy varies on Organization.signupPath. Event-path
+      // Donors-step copy varies on Organization.signupPath. Event-path
       // users see language that names the platforms they actually use;
       // donor-path users (the default) see CRM-export language.
       org.signupPath === "event"
@@ -143,7 +146,17 @@ export const getOnboardingState = cache(
         cta: "Start a campaign",
         href: "/outreach/new?onboarding=1",
         completedToast: "You've created your first outreach campaign.",
-        done: step4Done,
+        done: outreachDone,
+      },
+      {
+        key: "prospects",
+        title: "Find your first funder",
+        body: "Search public 990 filings — so you can build a pipeline of foundations that already fund work like yours.",
+        cta: "Open Find Funders",
+        href: "/discover",
+        completedToast: "You've saved your first funder.",
+        done: prospectCount > 0,
+        optional: true,
       },
       {
         key: "send",
@@ -158,14 +171,24 @@ export const getOnboardingState = cache(
 
     const completedCount = steps.filter((s) => s.done).length;
     const total = steps.length;
-    const allComplete = completedCount >= total;
-    const nextStep = steps.find((s) => !s.done) ?? null;
-    // Hide step 5 from the visible card list until step 4 is done.
-    // Sending a draft requires a campaign to exist, so showing both
-    // simultaneously is misleading; we re-introduce step 5 the moment
-    // the user wraps step 4 (toast + router.refresh re-renders the
-    // dashboard immediately).
-    const visibleSteps = step4Done
+    const requiredSteps = steps.filter((s) => !s.optional);
+    const requiredDoneCount = requiredSteps.filter((s) => s.done).length;
+    const allComplete = requiredDoneCount >= requiredSteps.length;
+    // Prefer the first required not-done step for the progress bar's
+    // "Next: …" line so the user is always guided toward a blocker
+    // rather than to an optional task. Fall back to the first optional
+    // not-done step (so we still surface it if every required one is
+    // complete), then to null when truly nothing is left.
+    const nextStep =
+      requiredSteps.find((s) => !s.done) ??
+      steps.find((s) => s.optional && !s.done) ??
+      null;
+    // Hide the "send" step from the visible list until "outreach" is
+    // done. Sending a draft requires a campaign to exist, so showing
+    // both simultaneously is misleading; we re-introduce send the
+    // moment the user wraps outreach (toast + router.refresh re-renders
+    // the dashboard immediately).
+    const visibleSteps = outreachDone
       ? steps
       : steps.filter((s) => s.key !== "send");
 

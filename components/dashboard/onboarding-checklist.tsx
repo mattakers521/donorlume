@@ -20,6 +20,11 @@ export type ChecklistStep = {
   done: boolean;
   /** Optional — present when the step came from getOnboardingState(). */
   completedToast?: string;
+  /**
+   * When true, the row shows an "Optional" badge next to the title.
+   * Driven by `OnboardingStep.optional` in lib/onboarding/state.ts.
+   */
+  optional?: boolean;
 };
 
 type Props = {
@@ -346,17 +351,43 @@ function StepRow({ step }: { step: ChecklistStep }) {
       <div style={{ flex: 1, minWidth: 0 }}>
         <div
           style={{
-            fontSize: 15,
-            fontWeight: 700,
-            color: C.text,
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
+            flexWrap: "wrap",
             marginBottom: 2,
-            textDecoration: step.done ? "line-through" : "none",
-            textDecorationColor: step.done
-              ? "rgba(0,0,0,0.20)"
-              : undefined,
           }}
         >
-          {step.title}
+          <span
+            style={{
+              fontSize: 15,
+              fontWeight: 700,
+              color: C.text,
+              textDecoration: step.done ? "line-through" : "none",
+              textDecorationColor: step.done
+                ? "rgba(0,0,0,0.20)"
+                : undefined,
+            }}
+          >
+            {step.title}
+          </span>
+          {step.optional && !step.done && (
+            <span
+              style={{
+                fontSize: 10,
+                fontWeight: 800,
+                letterSpacing: 1.1,
+                textTransform: "uppercase",
+                color: C.textSecondary,
+                backgroundColor: "rgba(0,0,0,0.05)",
+                padding: "2px 8px",
+                borderRadius: 100,
+                lineHeight: 1.4,
+              }}
+            >
+              Optional
+            </span>
+          )}
         </div>
         <div
           style={{

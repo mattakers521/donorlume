@@ -10,6 +10,7 @@ import {
   ChevronLeft,
   DollarSign,
   FileText,
+  Info,
   Loader as LoaderIcon,
   Search,
   Sparkles,
@@ -208,6 +209,12 @@ export function DiscoverClient({ initialSaved }: Props) {
   // ── SEARCH VIEW ─────────────────────────────────────────────────────────
   return (
     <div style={{ maxWidth: 1100 }}>
+      {/* Page-purpose explainer — always rendered so fundraisers know
+          this page is for sourcing NEW funders, not analyzing donors
+          they've already uploaded. Sits above the first-run onboarding
+          banner so the framing is the first thing they read. */}
+      <DiscoverPurposeStrip />
+
       {/* First-run guidance — visible until the user saves a prospect.
           Disappears the moment `saved.size` flips to > 0 (optimistic update
           on save fires synchronously, so the banner clears immediately). */}
@@ -1330,6 +1337,62 @@ function DiscoverOnboardingBanner() {
           </div>
         </div>
       </div>
+    </div>
+  );
+}
+
+/**
+ * Persistent explainer at the top of the Find Funders page. Sets
+ * expectations so fundraisers don't confuse this surface with the
+ * Donor Segments / Lapsed flows (which analyze *existing* donors).
+ * Lives above DiscoverOnboardingBanner so the page's purpose lands
+ * before the first-run "click Save to Pipeline" instruction.
+ */
+function DiscoverPurposeStrip() {
+  return (
+    <div
+      role="note"
+      style={{
+        display: "flex",
+        alignItems: "flex-start",
+        gap: 12,
+        padding: "14px 18px",
+        marginBottom: 18,
+        borderRadius: 14,
+        backgroundColor: C.surface,
+        border: `1px solid ${C.border}`,
+        boxShadow: shadow.sm,
+      }}
+    >
+      <div
+        aria-hidden
+        style={{
+          width: 32,
+          height: 32,
+          borderRadius: 10,
+          backgroundColor: C.amberLight,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          flexShrink: 0,
+        }}
+      >
+        <Info size={16} color={C.amberDark} />
+      </div>
+      <p
+        style={{
+          margin: 0,
+          fontSize: 13.5,
+          lineHeight: 1.55,
+          color: C.textBody,
+          fontWeight: 500,
+        }}
+      >
+        Search IRS 990 filings to discover foundations and grant-making
+        organizations that fund causes like yours. This is for finding{" "}
+        <strong style={{ color: C.text, fontWeight: 800 }}>NEW</strong>{" "}
+        funding sources — not for analyzing your existing donors.
+      </p>
     </div>
   );
 }
