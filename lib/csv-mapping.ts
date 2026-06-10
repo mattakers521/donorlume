@@ -19,6 +19,9 @@ export type ColumnMap = {
    */
   fullName: string | null;
   email: string | null;
+  /** Optional contact-completeness fields — feed the engagement scorer. */
+  phone: string | null;
+  address: string | null;
   firstGift: string | null;
   lastGift: string | null;
   totalGifts: string | null;
@@ -56,6 +59,15 @@ export function detectColumns(headers: string[]): ColumnMap {
     lastName,
     fullName,
     email: find("email", "emailaddress"),
+    // Phone matchers: "Phone", "Mobile", "Cell", "Telephone", "Phone Number".
+    phone: find("phone", "mobile", "cell", "telephone"),
+    // Address matchers: prefer a single full-address column, fall back
+    // to a street-line column. We don't try to merge separate
+    // street/city/state/zip columns into a single string — that's a
+    // larger normalization job; for engagement scoring we just need
+    // "is there ANY address field populated?", so a street column is
+    // a useful proxy.
+    address: find("address", "street", "mailing"),
     firstGift: find("firstgift", "firstdonat"),
     lastGift: find("lastgift", "lastdonat", "recentgift", "recentdate"),
     totalGifts: find("totalgift", "numgift", "giftcount", "frequency"),
@@ -124,6 +136,8 @@ export function projectRow(
   return {
     name,
     email,
+    phone: map.phone ? String(row[map.phone] ?? "").trim() : "",
+    address: map.address ? String(row[map.address] ?? "").trim() : "",
     firstGiftDate: parseDate(firstGiftRaw),
     lastGiftDate: parseDate(lastGiftRaw),
     totalGifts: parseNumber(map.totalGifts ? row[map.totalGifts] : 0),

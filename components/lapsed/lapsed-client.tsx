@@ -10,6 +10,7 @@ import type {
 } from "@prisma/client";
 
 import { scoreAll, type RawDonorRow } from "@/lib/scoring";
+import { AttendeeView } from "@/components/lapsed/attendee-view";
 import { UploadInsights } from "@/components/lapsed/upload-insights";
 import { UploadZone } from "@/components/lapsed/upload-zone";
 import { ScoredView } from "@/components/lapsed/scored-view";
@@ -147,36 +148,57 @@ export function LapsedClient({
     );
   }
 
+  // Attendee-only list = every row lacks any giving signal. When true
+  // we render AttendeeView instead of the lapsed-scoring table — the
+  // tier/threshold controls and lapsed-priority stats are meaningless
+  // here, and a blank scored table for a perfectly valid attendee
+  // upload feels broken.
+  const isAttendeeList = donors.every(
+    (d) =>
+      d.lastGiftDate == null &&
+      (d.totalGifts == null || d.totalGifts === 0) &&
+      (d.totalGiven == null || d.totalGiven === 0),
+  );
+
   return (
     <>
       <UploadInsights donors={donors} fileName={list.fileName ?? list.name} />
-      <ScoredView
-        donors={donors}
-        cohorts={cohorts}
-        totalUploaded={list.totalDonors}
-        thresholdMonths={threshold}
-        onThresholdChange={changeThreshold}
-        onNewUpload={newUpload}
-        currentUser={currentUser}
-        orgRole={orgRole}
-        onClaimUpdate={(donorId, next) => {
-          // Optimistically patch the local donor list so the row's claim
-          // pill flips immediately. Server-side refresh still happens via
-          // ClaimButton's internal router.refresh().
-          setDonors((prev) =>
-            prev.map((d) =>
-              d.id === donorId
-                ? {
-                    ...d,
-                    claimedById: next.claimedById,
-                    claimedAt: next.claimedAt,
-                    claimedBy: next.claimedBy,
-                  }
-                : d,
-            ),
-          );
-        }}
-      />
+      {isAttendeeList ? (
+        <AttendeeView
+          donors={donors}
+          cohorts={cohorts}
+          totalUploaded={list.totalDonors}
+          onNewUpload={newUpload}
+        />
+      ) : (
+        <ScoredView
+          donors={donors}
+          cohorts={cohorts}
+          totalUploaded={list.totalDonors}
+          thresholdMonths={threshold}
+          onThresholdChange={changeThreshold}
+          onNewUpload={newUpload}
+          currentUser={currentUser}
+          orgRole={orgRole}
+          onClaimUpdate={(donorId, next) => {
+            // Optimistically patch the local donor list so the row's
+            // claim pill flips immediately. Server-side refresh still
+            // happens via ClaimButton's internal router.refresh().
+            setDonors((prev) =>
+              prev.map((d) =>
+                d.id === donorId
+                  ? {
+                      ...d,
+                      claimedById: next.claimedById,
+                      claimedAt: next.claimedAt,
+                      claimedBy: next.claimedBy,
+                    }
+                  : d,
+              ),
+            );
+          }}
+        />
+      )}
     </>
   );
 }

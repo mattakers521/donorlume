@@ -1,9 +1,13 @@
 import { NextResponse } from "next/server";
+import type { Prisma } from "@prisma/client";
 import { z } from "zod";
 
 import { effectivePlan } from "@/lib/billing/trial";
 import { checkLimit } from "@/lib/billing/usage";
-import { assignAttendeeCohorts } from "@/lib/cohorts/attendee";
+import {
+  assignAttendeeCohorts,
+  extractAttendeeYears,
+} from "@/lib/cohorts/attendee";
 import { classifyDonors } from "@/lib/cohorts/classify";
 import {
   buildEngagementAssignments,
@@ -15,6 +19,7 @@ import { prisma } from "@/lib/prisma";
 import {
   DEFAULT_LAPSED_THRESHOLD_MONTHS,
   scoreAll,
+  scoreEngagement,
   type RawDonorRow,
 } from "@/lib/scoring";
 import { withOrg } from "@/lib/with-org";
@@ -25,6 +30,8 @@ export const dynamic = "force-dynamic";
 const wireDonor = z.object({
   name: z.string().min(1).max(300),
   email: z.string().max(300).default(""),
+  phone: z.string().max(60).default(""),
+  address: z.string().max(500).default(""),
   firstGiftDate: z.string().nullable(),
   lastGiftDate: z.string().nullable(),
   totalGifts: z.number().nonnegative(),
@@ -91,6 +98,8 @@ export const POST = withOrg(async (req, { auth }) => {
       raw: {
         name: d.name,
         email: d.email,
+        phone: d.phone,
+        address: d.address,
         firstGiftDate: toDate(d.firstGiftDate),
         lastGiftDate: toDate(d.lastGiftDate),
         totalGifts: d.totalGifts,
@@ -167,6 +176,29 @@ export const POST = withOrg(async (req, { auth }) => {
     where: { orgId: auth.org.id },
   });
 
+  // Engagement score per row. Only computed for attendees
+  // (`hasGivingHistory === false`); for donors with giving the field
+  // stays out of enrichmentData and the lapsed-scoring path is what
+  // drives sort + display. The result piggybacks on the existing
+  // `Donor.enrichmentData` JSON column so we don't need a schema
+  // migration to ship this — phone, address, and the engagement
+  // sub-components all live in the same blob.
+  const now = new Date();
+  const engagementByIndex = scored.map((d, i) => {
+    if (d.hasGivingHistory) return null;
+    const tags = scoreable[i]?.tags ?? {};
+    const years = extractAttendeeYears(tags);
+    return scoreEngagement(
+      years,
+      {
+        hasEmail: !!d.email,
+        hasPhone: !!scoreable[i]?.raw.phone,
+        hasAddress: !!scoreable[i]?.raw.address,
+      },
+      now,
+    );
+  });
+
   const list = await prisma.$transaction(async (tx) => {
     const created = await tx.donorList.create({
       data: {
@@ -183,27 +215,52 @@ export const POST = withOrg(async (req, { auth }) => {
     });
 
     await tx.donor.createMany({
-      data: scored.map((d) => ({
-        donorListId: created.id,
-        name: d.name,
-        email: d.email || null,
-        donorType: d.donorType || null,
-        firstGiftDate: d.firstGiftDate,
-        lastGiftDate: d.lastGiftDate,
-        totalGifts: d.totalGifts || null,
-        totalGiven: d.totalGiven || null,
-        largestGift: d.largestGift || null,
-        notes: d.notes || null,
-        isLapsed: d.isLapsed,
-        reactivationScore: d.reactivationScore,
-        tier: d.tier,
-        recencyScore: d.recencyScore,
-        frequencyScore: d.frequencyScore,
-        monetaryScore: d.monetaryScore,
-        tenureScore: d.tenureScore,
-        activeElsewhere: d.activeElsewhere,
-        searchIntent: d.searchIntent,
-      })),
+      data: scored.map((d, i) => {
+        const engagement = engagementByIndex[i];
+        const phone = scoreable[i]?.raw.phone ?? "";
+        const address = scoreable[i]?.raw.address ?? "";
+        const enrichment: Record<string, Prisma.InputJsonValue> = {};
+        if (phone) enrichment.phone = phone;
+        if (address) enrichment.address = address;
+        if (engagement) {
+          enrichment.engagement = {
+            score: engagement.totalScore,
+            yearsAttended: engagement.yearsAttended,
+            years: engagement.years,
+            mostRecentYear: engagement.mostRecentYear,
+            longestStreak: engagement.longestStreak,
+            components: {
+              frequency: engagement.frequencyScore,
+              recency: engagement.recencyScore,
+              consistency: engagement.consistencyScore,
+              contact: engagement.contactScore,
+            },
+          };
+        }
+        return {
+          donorListId: created.id,
+          name: d.name,
+          email: d.email || null,
+          donorType: d.donorType || null,
+          firstGiftDate: d.firstGiftDate,
+          lastGiftDate: d.lastGiftDate,
+          totalGifts: d.totalGifts || null,
+          totalGiven: d.totalGiven || null,
+          largestGift: d.largestGift || null,
+          notes: d.notes || null,
+          isLapsed: d.isLapsed,
+          reactivationScore: d.reactivationScore,
+          tier: d.tier,
+          recencyScore: d.recencyScore,
+          frequencyScore: d.frequencyScore,
+          monetaryScore: d.monetaryScore,
+          tenureScore: d.tenureScore,
+          activeElsewhere: d.activeElsewhere,
+          searchIntent: d.searchIntent,
+          enrichmentData:
+            Object.keys(enrichment).length > 0 ? enrichment : undefined,
+        };
+      }),
     });
 
     return created;
