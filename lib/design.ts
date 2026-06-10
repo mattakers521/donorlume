@@ -24,11 +24,18 @@ export const C = {
   borderSubtle: "rgba(0,0,0,0.03)",
   borderDark: "rgba(255,255,255,0.08)",
   borderDarkStrong: "rgba(255,255,255,0.14)",
-  // Text — light surfaces (textBody is the new high-contrast default for body copy)
+  // Text — light surfaces. All four colors meet WCAG AA (4.5:1) on
+  // the #FAFAF8 background:
+  //   text           #1D1D1F  ≈ 17:1
+  //   textBody       #3A3A3C  ≈ 11:1
+  //   textSecondary  #5A5A5F  ≈  7:1
+  //   textTertiary   #6E6E73  ≈  5:1
+  // (textTertiary previously sat at #AEAEB2 / ~2.5:1, failing AA —
+  //  audit-driven bump for legibility on retina + cheaper screens.)
   text: "#1D1D1F",
   textBody: "#3A3A3C",
-  textSecondary: "#6E6E73",
-  textTertiary: "#AEAEB2",
+  textSecondary: "#5A5A5F",
+  textTertiary: "#6E6E73",
   // Text — dark surfaces
   textOnDark: "#FFFFFF",
   textOnDarkBody: "rgba(255,255,255,0.92)",

@@ -48,7 +48,7 @@ export const NAV: NavItem[] = [
   { id: "dashboard", label: "Dashboard", path: "/dashboard", Icon: LayoutDashboard },
   { id: "discover", label: "Find Funders", path: "/discover", Icon: Search },
   { id: "donors", label: "Donor Intelligence", path: "/donors", Icon: Heart },
-  { id: "lapsed", label: "Lapsed Reactivation", path: "/lapsed", Icon: RefreshCw },
+  { id: "lapsed", label: "Upload & Score", path: "/lapsed", Icon: RefreshCw },
   { id: "cohorts", label: "Donor Segments", path: "/cohorts", Icon: Layers },
   { id: "outreach", label: "AI Outreach", path: "/outreach", Icon: Mail },
   { id: "reports", label: "Reports", path: "/reports", Icon: PieChart },
@@ -131,8 +131,8 @@ export const PAGE_TITLES: Record<string, { title: string; sub?: string }> = {
   },
   "/donors": { title: "Donor Intelligence" },
   "/lapsed": {
-    title: "Lapsed Donor Scoring",
-    sub: "Upload a donor list to identify reactivation candidates.",
+    title: "Upload & Score",
+    sub: "Upload donor lists or event attendee CSVs — we score giving and segment everyone in.",
   },
   "/cohorts": {
     title: "Donor Segments",

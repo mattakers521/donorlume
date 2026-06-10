@@ -10,6 +10,7 @@ import type {
 } from "@prisma/client";
 
 import { scoreAll, type RawDonorRow } from "@/lib/scoring";
+import { UploadInsights } from "@/components/lapsed/upload-insights";
 import { UploadZone } from "@/components/lapsed/upload-zone";
 import { ScoredView } from "@/components/lapsed/scored-view";
 import { useToast } from "@/components/toast/toast-provider";
@@ -147,33 +148,36 @@ export function LapsedClient({
   }
 
   return (
-    <ScoredView
-      donors={donors}
-      cohorts={cohorts}
-      totalUploaded={list.totalDonors}
-      thresholdMonths={threshold}
-      onThresholdChange={changeThreshold}
-      onNewUpload={newUpload}
-      currentUser={currentUser}
-      orgRole={orgRole}
-      onClaimUpdate={(donorId, next) => {
-        // Optimistically patch the local donor list so the row's claim
-        // pill flips immediately. Server-side refresh still happens via
-        // ClaimButton's internal router.refresh().
-        setDonors((prev) =>
-          prev.map((d) =>
-            d.id === donorId
-              ? {
-                  ...d,
-                  claimedById: next.claimedById,
-                  claimedAt: next.claimedAt,
-                  claimedBy: next.claimedBy,
-                }
-              : d,
-          ),
-        );
-      }}
-    />
+    <>
+      <UploadInsights donors={donors} fileName={list.fileName ?? list.name} />
+      <ScoredView
+        donors={donors}
+        cohorts={cohorts}
+        totalUploaded={list.totalDonors}
+        thresholdMonths={threshold}
+        onThresholdChange={changeThreshold}
+        onNewUpload={newUpload}
+        currentUser={currentUser}
+        orgRole={orgRole}
+        onClaimUpdate={(donorId, next) => {
+          // Optimistically patch the local donor list so the row's claim
+          // pill flips immediately. Server-side refresh still happens via
+          // ClaimButton's internal router.refresh().
+          setDonors((prev) =>
+            prev.map((d) =>
+              d.id === donorId
+                ? {
+                    ...d,
+                    claimedById: next.claimedById,
+                    claimedAt: next.claimedAt,
+                    claimedBy: next.claimedBy,
+                  }
+                : d,
+            ),
+          );
+        }}
+      />
+    </>
   );
 }
 

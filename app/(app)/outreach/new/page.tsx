@@ -42,8 +42,16 @@ export default async function OutreachPage({
 
   // Pull both selection sources in parallel: explicit ?donors=ids (from
   // /lapsed handoff) AND ?cohort=slug (from cohort detail's "Generate
-  // outreach for this cohort" CTA). Either or both may be present.
-  const [byIdList, byCohortList] = await Promise.all([
+  // outreach for this cohort" CTA). When NEITHER is present (e.g. the
+  // user landed on /outreach/new from the sidebar or a dashboard
+  // quick-action), default to every real donor in the org so attendees
+  // and unlapsed contacts surface on the selection screen without
+  // having to hop back to /upload or /cohorts. Cap at MAX_DEFAULT_LOAD
+  // so a 50k-donor org doesn't ship the whole table to the client.
+  const MAX_DEFAULT_LOAD = 2000;
+  const noSelectionParams = donorIds.length === 0 && !params.cohort;
+
+  const [byIdList, byCohortList, allOrgDonors] = await Promise.all([
     donorIds.length > 0
       ? prisma.donor.findMany({
           where: {
@@ -72,11 +80,34 @@ export default async function OutreachPage({
           },
         })
       : Promise.resolve<RealDonorWithCohorts[]>([]),
+    noSelectionParams
+      ? prisma.donor.findMany({
+          where: {
+            donorList: { orgId: org.id },
+            // Donors must have an email to be useful for outreach —
+            // mirrors the upload-flow's name+email requirement.
+            email: { not: null },
+          },
+          include: {
+            cohorts: { include: { cohort: true } },
+            claimedBy: { select: { id: true, name: true, email: true } },
+          },
+          // Recent uploads first so the post-upload "Generate outreach"
+          // path lands on the new list at the top.
+          orderBy: [
+            { donorList: { processedAt: "desc" } },
+            { reactivationScore: "desc" },
+          ],
+          take: MAX_DEFAULT_LOAD,
+        })
+      : Promise.resolve<RealDonorWithCohorts[]>([]),
   ]);
 
-  // Dedupe by donor id — a donor could match both selection paths.
+  // Dedupe by donor id — a donor could match multiple selection paths
+  // (e.g. explicit ?donors= overlapping the default org-wide load).
   const realDonorsMap = new Map<string, RealDonorWithCohorts>();
-  for (const d of [...byIdList, ...byCohortList]) realDonorsMap.set(d.id, d);
+  for (const d of [...byIdList, ...byCohortList, ...allOrgDonors])
+    realDonorsMap.set(d.id, d);
   const realDonors = [...realDonorsMap.values()];
 
   // Fetch org settings + all cohort defs for the filter bar.

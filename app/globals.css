@@ -8,9 +8,15 @@
   --border: rgba(0, 0, 0, 0.06);
   --border-subtle: rgba(0, 0, 0, 0.03);
 
+  /* WCAG AA contrast (4.5:1 on #FAFAF8): secondary now at ~7:1,
+     tertiary at ~5:1. The previous tertiary (#AEAEB2) sat at ~2.5:1
+     and visibly washed out small-text labels — table headers, status
+     pills, hint subheads were borderline on retina displays and
+     unreadable on cheaper screens. */
   --text: #1d1d1f;
-  --text-secondary: #6e6e73;
-  --text-tertiary: #aeaeb2;
+  --text-body: #3a3a3c;
+  --text-secondary: #5a5a5f;
+  --text-tertiary: #6e6e73;
 
   --amber: #e8860c;
   --amber-light: #fff4e6;
