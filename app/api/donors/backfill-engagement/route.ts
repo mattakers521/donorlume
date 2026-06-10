@@ -14,51 +14,47 @@ export const dynamic = "force-dynamic";
  *
  * Computes engagement scores for attendee donors uploaded BEFORE the
  * engagement-scoring feature existed (or whose enrichmentData was
- * dropped for any other reason). Idempotent — only touches rows
- * matching ALL of:
+ * dropped). Idempotent unless `?force=true` is passed (which clears
+ * the engagement key before scoring — used when a prior backfill
+ * produced empty scores because the year-recovery logic was too
+ * narrow).
  *
- *   1. No gift signal at all (lastGiftDate null + zero totals)
- *   2. No `enrichmentData.engagement` key already present
+ * Year recovery scans, in priority order:
  *
- * For each match, derive the year set from the donor's existing
- * cohort assignments:
+ *   1. Per-event cohort NAMES across EVERY cohort family the donor
+ *      belongs to (not just ENGAGEMENT — VETLIFE's pre-existing
+ *      cohorts may live in CUSTOM or another family depending on
+ *      when they were created). Same year regex the upload-time
+ *      parser uses. Lossless when the user kept the TAGS column.
+ *   2. Cohort DESCRIPTIONS — the upload flow writes the raw tag
+ *      value into description for ENGAGEMENT cohorts.
+ *   3. Donor.notes — fallback for orgs that dumped tags into the
+ *      notes column instead of a dedicated TAGS column.
+ *   4. SYSTEM attendee-* slugs — bucket approximation.
  *
- *   • ENGAGEMENT-family cohort NAMES often carry the year ("Vet Fest
- *     2024", "Gala 2023") because the upload flow seeded one cohort
- *     per unique (TAGS column, value) pair. Parsing those names back
- *     into years recovers the original signal precisely.
- *   • If no per-event cohort survived (the user skipped the TAGS
- *     column at upload), fall back to the four SYSTEM attendee-*
- *     cohorts: first-time → 1 year, multi-year → 2 (conservative
- *     floor), recent → most-recent within last calendar year, lapsed
- *     → 3 years ago.
- *
- * Approximations are clearly worse than the upload-time path, but
- * "approximate score" beats "no score at all" for the user trying to
- * triage an attendee list and decide who to call first.
- *
- * Returns `{ scanned, updated }`.
+ * Returns `{ scanned, updated, cleared, sample, updates }`. `sample`
+ * is a 5-donor dump (name + cohort names + recovered years + final
+ * score) so the client console can see exactly what was found.
  */
-export const POST = withOrg(async (_req, { auth }) => {
-  // Pull every attendee donor in the org. Filtering happens in JS
-  // because the JSON-key check (`engagement` exists in enrichmentData)
-  // is awkward across Prisma + Postgres dialects.
+export const POST = withOrg(async (req, { auth }) => {
+  const url = new URL(req.url);
+  const force = url.searchParams.get("force") === "true";
+
+  console.log(
+    `[backfill-engagement] start org=${auth.org.id} force=${force}`,
+  );
+
+  // Pull every attendee donor in the org.
   const donors = await prisma.donor.findMany({
     where: {
       donorList: { orgId: auth.org.id },
       lastGiftDate: null,
       AND: [
         {
-          OR: [
-            { totalGifts: null },
-            { totalGifts: 0 },
-          ],
+          OR: [{ totalGifts: null }, { totalGifts: 0 }],
         },
         {
-          OR: [
-            { totalGiven: null },
-            { totalGiven: 0 },
-          ],
+          OR: [{ totalGiven: null }, { totalGiven: 0 }],
         },
       ],
     },
@@ -67,28 +63,50 @@ export const POST = withOrg(async (_req, { auth }) => {
     },
   });
 
+  console.log(
+    `[backfill-engagement] attendees found=${donors.length}`,
+  );
+
   const now = new Date();
   const updates: { id: string; enrichmentData: Prisma.InputJsonValue }[] =
     [];
+  let cleared = 0;
+  const sample: Array<{
+    name: string;
+    cohortCount: number;
+    cohortNames: string[];
+    recoveredYears: number[];
+    finalScore: number;
+  }> = [];
 
-  // Update sequentially. ~50-100ms × N is fine for the one-shot
-  // backfill case (5000 attendees → a few minutes; typical orgs are
-  // 100-1000 rows, well under a minute). If this becomes a hotspot
-  // we'd batch into raw SQL.
   for (const donor of donors) {
-    const enrichment = (donor.enrichmentData ?? {}) as Record<
+    const incomingEnrichment = (donor.enrichmentData ?? {}) as Record<
       string,
       Prisma.InputJsonValue
     >;
-    if (
-      enrichment &&
-      typeof enrichment === "object" &&
-      "engagement" in enrichment
-    ) {
-      continue;
+    const hasEngagement =
+      incomingEnrichment &&
+      typeof incomingEnrichment === "object" &&
+      "engagement" in incomingEnrichment;
+
+    if (hasEngagement && !force) continue;
+
+    // Working copy without the engagement key — gets re-attached
+    // after scoring. When `force`, we strip the existing key first
+    // so the broader recovery logic can overwrite it.
+    const enrichment: Record<string, Prisma.InputJsonValue> = {
+      ...incomingEnrichment,
+    };
+    if (hasEngagement && force) {
+      delete enrichment.engagement;
+      cleared++;
     }
 
-    const years = recoverYears(donor.cohorts, now);
+    const { years, debugCohortNames } = recoverYears(
+      donor.cohorts,
+      donor.notes,
+      now,
+    );
     const hasPhone =
       typeof enrichment.phone === "string" && enrichment.phone.length > 0;
     const hasAddress =
@@ -127,14 +145,33 @@ export const POST = withOrg(async (_req, { auth }) => {
       data: { enrichmentData: nextEnrichment },
     });
     updates.push({ id: donor.id, enrichmentData: nextEnrichment });
+
+    if (sample.length < 5) {
+      sample.push({
+        name: donor.name,
+        cohortCount: donor.cohorts.length,
+        cohortNames: debugCohortNames,
+        recoveredYears: [...years].sort((a, b) => a - b),
+        finalScore: result.totalScore,
+      });
+    }
+  }
+
+  console.log(
+    `[backfill-engagement] done scanned=${donors.length} updated=${updates.length} cleared=${cleared}`,
+  );
+  if (sample.length > 0) {
+    console.log(
+      "[backfill-engagement] sample",
+      JSON.stringify(sample, null, 2),
+    );
   }
 
   return NextResponse.json({
     scanned: donors.length,
     updated: updates.length,
-    // Returning per-donor patches lets the client apply them inline
-    // without a router.refresh() round trip — avoids prop-sync
-    // gymnastics and keeps any optimistic state intact.
+    cleared,
+    sample,
     updates,
   });
 });
@@ -147,39 +184,44 @@ const ATTENDEE_SYSTEM_SLUGS = new Set([
 ]);
 
 /**
- * Recover a year set from a donor's cohort assignments.
+ * Recover a year set from everything we know about the donor.
  *
- * Priority 1 — per-event ENGAGEMENT cohorts. Their `name` field
- * carries the raw tag value (e.g. "Vet Fest 2024"); the same year
- * regex the upload-time parser uses pulls those years back out
- * cleanly. This is lossless when the user kept the TAGS column at
- * upload.
- *
- * Priority 2 — SYSTEM attendee-* cohorts. Approximate years from
- * which buckets the donor lives in. Worse signal but better than
- * nothing.
+ * Returns both the year set AND the cohort names actually scanned so
+ * the route can log them when the recovery comes up empty — that's
+ * the smoking gun for "the original upload didn't preserve year
+ * info anywhere we can reach now".
  */
 function recoverYears(
-  cohorts: { cohort: { slug: string; name: string; family: string } }[],
+  cohorts: { cohort: { slug: string; name: string; family: string; description: string | null } }[],
+  notes: string | null,
   now: Date,
-): Set<number> {
+): { years: Set<number>; debugCohortNames: string[] } {
   const years = new Set<number>();
   const tagBag: Record<string, string> = {};
+  const debugCohortNames: string[] = [];
 
-  // Per-event ENGAGEMENT cohorts whose names carry years.
-  let perEventIndex = 0;
+  // Scan every non-system cohort name + description. Old VETLIFE
+  // uploads may have classified the per-event cohorts under any
+  // family (the upload flow has evolved); we cast the widest net so
+  // the recovery doesn't miss them.
+  let scanIndex = 0;
   for (const dc of cohorts) {
-    if (
-      dc.cohort.family !== "ENGAGEMENT" ||
-      ATTENDEE_SYSTEM_SLUGS.has(dc.cohort.slug)
-    ) {
-      continue;
+    if (ATTENDEE_SYSTEM_SLUGS.has(dc.cohort.slug)) continue;
+    debugCohortNames.push(`${dc.cohort.family}:${dc.cohort.name}`);
+    tagBag[`name-${scanIndex}`] = dc.cohort.name;
+    if (dc.cohort.description) {
+      tagBag[`desc-${scanIndex}`] = dc.cohort.description;
     }
-    tagBag[`backfill-${perEventIndex++}`] = dc.cohort.name;
+    scanIndex++;
   }
-  if (perEventIndex > 0) {
+  // Donor.notes is a free-text field but some upload paths dump TAGS
+  // into it when no dedicated TAGS column was selected.
+  if (notes && notes.trim()) {
+    tagBag.notes = notes;
+  }
+  if (Object.keys(tagBag).length > 0) {
     for (const y of extractAttendeeYears(tagBag)) years.add(y);
-    if (years.size > 0) return years;
+    if (years.size > 0) return { years, debugCohortNames };
   }
 
   // Fallback: approximate from the SYSTEM attendee-* cohorts.
@@ -189,21 +231,18 @@ function recoverYears(
   const isRecent = slugs.has("attendee-recent");
   const isLapsed = slugs.has("attendee-lapsed");
 
-  if (!isFirstTime && !isMultiYear) return years; // no signal at all
+  if (!isFirstTime && !isMultiYear) {
+    return { years, debugCohortNames };
+  }
 
   const currentYear = now.getUTCFullYear();
   const anchor = isRecent
-    ? currentYear - 1 // "within current or previous calendar year" — pick previous as the conservative floor
+    ? currentYear - 1
     : isLapsed
-      ? currentYear - 3 // "attended at some point but not since" — assume 3y ago
-      : currentYear - 2; // unknown recency band — neutral middle
+      ? currentYear - 3
+      : currentYear - 2;
 
   years.add(anchor);
-  if (isMultiYear) {
-    // Add a second year so the consistency + frequency math reflects
-    // multi-year attendance. We don't know exactly how many years —
-    // 2 is the floor that triggered the multi-year bucket.
-    years.add(anchor - 1);
-  }
-  return years;
+  if (isMultiYear) years.add(anchor - 1);
+  return { years, debugCohortNames };
 }

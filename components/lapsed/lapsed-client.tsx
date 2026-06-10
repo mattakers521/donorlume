@@ -162,44 +162,91 @@ export function LapsedClient({
 
   // ─── Engagement-score backfill ───────────────────────────────────
   // Attendees uploaded before the engagement scorer existed have no
-  // `enrichmentData.engagement` and would render as em-dashes in the
+  // `enrichmentData.engagement` and render as em-dashes in
   // AttendeeView. The first time the page loads with such rows, kick
   // off a server-side backfill (which recovers years from existing
-  // cohort assignments) and patch the returned scores into local
-  // state. Idempotent: subsequent loads find every row already has
-  // the engagement key and skip the call.
+  // cohort assignments + cohort descriptions + notes) and patch the
+  // returned scores into local state. Idempotent: subsequent loads
+  // find every row already has the engagement key and skip the call.
   //
-  // Guarded by a ref so React 19 strict-mode double-mount doesn't
-  // double-fire the POST, and so the effect doesn't re-run after we
-  // patch state.
+  // SECOND-CHANCE LOGIC: if a prior backfill produced empty scores
+  // across the board (yearsAttended=0 for every backfilled row), the
+  // year-recovery scan was too narrow at the time. Auto-retrigger
+  // ONCE with ?force=true so the broader recovery logic in the
+  // current code can take another swing. The sessionStorage flag
+  // prevents looping forever if recovery is genuinely impossible
+  // (e.g. the original CSV truly had no year data anywhere).
   const backfillFiredRef = useRef(false);
   useEffect(() => {
     if (backfillFiredRef.current) return;
     if (!isAttendeeList || donors.length === 0) return;
-    const anyMissingEngagement = donors.some((d) => {
+
+    const missingEngagement = donors.filter((d) => {
       const enrichment = d.enrichmentData as
         | { engagement?: unknown }
         | null;
       return !enrichment || !enrichment.engagement;
     });
-    if (!anyMissingEngagement) return;
+    const backfilledEmpty = donors.filter((d) => {
+      const enrichment = d.enrichmentData as
+        | { engagement?: { backfilled?: boolean; yearsAttended?: number } }
+        | null;
+      const e = enrichment?.engagement;
+      return e?.backfilled === true && (e.yearsAttended ?? 0) === 0;
+    });
+
+    const forceRetried =
+      typeof window !== "undefined" &&
+      window.sessionStorage.getItem("engagement-backfill-force-tried") ===
+        "1";
+    const needsForce =
+      !forceRetried &&
+      missingEngagement.length === 0 &&
+      backfilledEmpty.length > 0 &&
+      backfilledEmpty.length === donors.length;
+
+    if (missingEngagement.length === 0 && !needsForce) return;
+
     backfillFiredRef.current = true;
+    const force = needsForce;
+    if (force && typeof window !== "undefined") {
+      window.sessionStorage.setItem(
+        "engagement-backfill-force-tried",
+        "1",
+      );
+    }
+
+    console.log(
+      `[engagement-backfill] triggering total=${donors.length} missing=${missingEngagement.length} backfilledEmpty=${backfilledEmpty.length} force=${force}`,
+    );
+
     void (async () => {
       try {
-        const res = await fetch("/api/donors/backfill-engagement", {
-          method: "POST",
-        });
+        const res = await fetch(
+          `/api/donors/backfill-engagement${force ? "?force=true" : ""}`,
+          { method: "POST" },
+        );
         if (!res.ok) {
           console.warn(
-            "[engagement-backfill] failed",
+            "[engagement-backfill] HTTP failed",
             res.status,
             await res.text().catch(() => ""),
           );
           return;
         }
         const body = (await res.json()) as {
+          scanned?: number;
+          updated?: number;
+          cleared?: number;
+          sample?: unknown;
           updates?: { id: string; enrichmentData: unknown }[];
         };
+        console.log(
+          `[engagement-backfill] response scanned=${body.scanned} updated=${body.updated} cleared=${body.cleared ?? 0}`,
+        );
+        if (body.sample) {
+          console.log("[engagement-backfill] sample", body.sample);
+        }
         if (!body.updates || body.updates.length === 0) return;
         const patchById = new Map(
           body.updates.map((u) => [u.id, u.enrichmentData]),
