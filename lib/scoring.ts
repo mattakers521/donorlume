@@ -33,11 +33,19 @@ export type ScoredDonor = RawDonorRow & {
   daysSinceLast: number;
   isLapsed: boolean;
   reactivationScore: number;
-  tier: "High" | "Medium" | "Low" | "Cold";
+  tier: "High" | "Medium" | "Low" | "Cold" | "Attendee";
   recencyScore: number;
   frequencyScore: number;
   monetaryScore: number;
   tenureScore: number;
+  /**
+   * True when the row carries any giving signal at all (last gift date OR
+   * non-zero totalGifts/totalGiven). When false, the row is an event
+   * attendee or contact-only record — reactivation framing doesn't apply
+   * and the AI prompt switches to first-time-conversion mode. The tier
+   * collapses to "Attendee" instead of "Cold".
+   */
+  hasGivingHistory: boolean;
   /** Placeholder enrichment signals — replace with real FEC/intent data later. */
   activeElsewhere: boolean;
   searchIntent: boolean;
@@ -65,18 +73,31 @@ export function scoreReactivation(
   const totalGifts = donor.totalGifts || 0;
   const totalGiven = donor.totalGiven || 0;
   const avgGift = totalGifts > 0 ? totalGiven / totalGifts : 0;
+  const hasGivingHistory = !!ld || totalGifts > 0 || totalGiven > 0;
 
   const recency = Math.max(0, 30 - (daysSinceLast / 30) * 1.5);
   const frequency = Math.min(25, totalGifts * 2.5);
   const monetary = Math.min(25, (avgGift / 200) * 2.5);
   const tenure = Math.min(20, (tenureDays / 365) * 4);
 
-  const score = Math.round(
-    Math.min(100, Math.max(0, recency + frequency + monetary + tenure)),
-  );
+  const score = hasGivingHistory
+    ? Math.round(
+        Math.min(100, Math.max(0, recency + frequency + monetary + tenure)),
+      )
+    : 0;
 
-  const tier: ScoredDonor["tier"] =
-    score >= 80 ? "High" : score >= 55 ? "Medium" : score >= 30 ? "Low" : "Cold";
+  // Attendees (no giving signal at all) skip the High/Medium/Low/Cold
+  // ladder — those tiers are reactivation-priority bands and don't
+  // apply to first-time-conversion candidates.
+  const tier: ScoredDonor["tier"] = !hasGivingHistory
+    ? "Attendee"
+    : score >= 80
+      ? "High"
+      : score >= 55
+        ? "Medium"
+        : score >= 30
+          ? "Low"
+          : "Cold";
 
   return {
     ...donor,
@@ -84,6 +105,7 @@ export function scoreReactivation(
     daysSinceLast,
     reactivationScore: score,
     tier,
+    hasGivingHistory,
     recencyScore: Math.round(recency),
     frequencyScore: Math.round(frequency),
     monetaryScore: Math.round(monetary),

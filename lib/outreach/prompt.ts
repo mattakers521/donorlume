@@ -119,28 +119,71 @@ export function buildSystemPrompt(
   ];
 }
 
+/**
+ * True when this donor record has no recorded giving signal — i.e. it
+ * came in as an event attendee, mailing-list contact, or otherwise
+ * "knows the org but hasn't given yet" row. The prompt flips into
+ * first-time-donor-conversion mode for these recipients.
+ */
+function isAttendee(d: DonorContext): boolean {
+  const noLastGift = !d.lastGiftLabel && d.lapsedMonths == null;
+  const noTotals =
+    (d.totalGifts == null || d.totalGifts === 0) &&
+    (d.totalGiven == null || d.totalGiven === 0);
+  return noLastGift && noTotals;
+}
+
 export function buildUserPrompt(d: DonorContext, emailType: string): string {
   const fmt$ = (n?: number | null) =>
     n == null ? "—" : `$${n.toLocaleString()}`;
+  const attendee = isAttendee(d);
+
   const lines = [
     `DONOR: ${d.name}${d.donorType ? ` (${d.donorType})` : ""}`,
     d.cohorts && d.cohorts.length > 0
       ? `- SEGMENTS: ${d.cohorts.join(", ")}`
       : null,
-    `- ${d.totalGifts ?? "—"} gifts totaling ${fmt$(d.totalGiven)}`,
-    d.lastGiftLabel
-      ? `- Last gift: ${d.lastGiftLabel}${d.lapsedMonths != null ? ` (${d.lapsedMonths} months ago)` : ""}`
-      : null,
-    `- Largest: ${fmt$(d.largestGift)} | Average: ${fmt$(d.averageGift)}`,
-    d.reactivationScore != null
-      ? `- Reactivation score: ${d.reactivationScore}/100${d.tier ? ` (${d.tier})` : ""}`
-      : null,
-    d.activeElsewhere != null
+    // Hide the giving-history bullets entirely for attendees so the AI
+    // doesn't fill them with em-dashes that imply "we have no record"
+    // when the truthful framing is "this person hasn't given yet."
+    attendee
+      ? null
+      : `- ${d.totalGifts ?? "—"} gifts totaling ${fmt$(d.totalGiven)}`,
+    attendee
+      ? null
+      : d.lastGiftLabel
+        ? `- Last gift: ${d.lastGiftLabel}${d.lapsedMonths != null ? ` (${d.lapsedMonths} months ago)` : ""}`
+        : null,
+    attendee
+      ? null
+      : `- Largest: ${fmt$(d.largestGift)} | Average: ${fmt$(d.averageGift)}`,
+    attendee
+      ? null
+      : d.reactivationScore != null
+        ? `- Reactivation score: ${d.reactivationScore}/100${d.tier ? ` (${d.tier})` : ""}`
+        : null,
+    d.activeElsewhere != null && !attendee
       ? `- Active elsewhere: ${d.activeElsewhere ? "Yes" : "Unknown"}`
       : null,
     d.notes ? `- Notes: ${d.notes}` : null,
+    attendee
+      ? "- NO RECORDED GIFTS: this person is an event attendee or supporter who hasn't given yet."
+      : null,
     "",
-    `Write the personalized ${TYPE_LABEL[emailType] ?? emailType} email now.`,
+    attendee
+      ? // First-time-donor conversion framing. Overrides the campaign-
+        // level emailType (reactivation / impact_update / etc.) because
+        // those framings assume prior giving — confusing for an attendee.
+        [
+          "FIRST-TIME CONVERSION CONTEXT — this recipient has not given yet.",
+          "Write an invitation to make their first gift, not a reactivation or thank-you.",
+          "Anchor on their EXISTING relationship (event attendance, segment tags) and use that as the bridge into giving.",
+          "Do NOT use phrases like 'welcome back', 'come back', 'reactivate', 'renew', 'continue your generosity', 'as you've supported us before', or anything that implies prior gifts.",
+          "Lead with impact + a concrete first-gift ask (suggested amount or a clear 'make your first gift' CTA).",
+          "",
+          `Write the personalized first-time-donor invitation email now.`,
+        ].join("\n")
+      : `Write the personalized ${TYPE_LABEL[emailType] ?? emailType} email now.`,
   ];
   return lines.filter(Boolean).join("\n");
 }

@@ -3,6 +3,7 @@ import { z } from "zod";
 
 import { effectivePlan } from "@/lib/billing/trial";
 import { checkLimit } from "@/lib/billing/usage";
+import { assignAttendeeCohorts } from "@/lib/cohorts/attendee";
 import { classifyDonors } from "@/lib/cohorts/classify";
 import {
   buildEngagementAssignments,
@@ -103,12 +104,16 @@ export const POST = withOrg(async (req, { auth }) => {
       tags: d.csvTags ?? {},
     }));
 
-  // Drop rows the scorer can't handle (no last-gift date) — preserving
-  // the parallel (raw, tags) shape.
-  const scoreable = rawWithTags.filter((r) => r.raw.lastGiftDate !== null);
+  // Rows without giving history are kept — they're event attendees
+  // and contact-only records the scorer flags as `tier: "Attendee"`
+  // (reactivation score 0, hasGivingHistory false). The AI outreach
+  // prompt builder switches to first-time-conversion framing when it
+  // sees this state, and attendee.ts assigns them into the four
+  // attendee cohorts via parsed event-year tags.
+  const scoreable = rawWithTags;
   if (scoreable.length === 0) {
     return NextResponse.json(
-      { error: "No rows had a parseable last-gift date." },
+      { error: "No rows had a name + email." },
       { status: 400 },
     );
   }
@@ -119,6 +124,7 @@ export const POST = withOrg(async (req, { auth }) => {
     thresholdMonths,
   );
   const lapsedCount = scored.filter((d) => d.isLapsed).length;
+  const attendeeCount = scored.filter((d) => !d.hasGivingHistory).length;
 
   // ─── Plan-limit gate (donor record count) ──────────────────────────
   // Existing donor rows + the new batch must fit under the plan cap.
@@ -237,6 +243,22 @@ export const POST = withOrg(async (req, { auth }) => {
     }
   }
 
+  // 3. ATTENDEE cohorts — parsed from event-year tags in the donor's
+  //    csvTags map regardless of whether the user opted that column into
+  //    engagement cohorts. Bypasses the user-selected column gate
+  //    because the year information itself is the signal — a "TAGS"
+  //    column with "Vet Fest 2024" yields a recent-attendee
+  //    classification whether or not the user kept TAGS as an
+  //    engagement column.
+  const attendeeAssignmentInputs = persistedInOrder.map((p, i) => ({
+    donorId: p.id,
+    tags: scoreable[i]?.tags ?? {},
+  }));
+  const attendeeAssignments = await assignAttendeeCohorts(
+    auth.org.id,
+    attendeeAssignmentInputs,
+  );
+
   const allAssignments = [...ruleAssignments, ...engagementAssignments];
   if (allAssignments.length > 0) {
     await prisma.donorCohort.createMany({
@@ -248,6 +270,12 @@ export const POST = withOrg(async (req, { auth }) => {
         assignmentType:
           i >= ruleAssignments.length ? "csv" : a.assignmentType,
       })),
+      skipDuplicates: true,
+    });
+  }
+  if (attendeeAssignments.length > 0) {
+    await prisma.donorCohort.createMany({
+      data: attendeeAssignments,
       skipDuplicates: true,
     });
   }

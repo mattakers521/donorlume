@@ -3,9 +3,11 @@
 import { useRef, useState } from "react";
 import {
   AlertCircle,
+  Calendar,
   Check,
   ChevronLeft,
   Download,
+  Heart,
   Layers,
   Loader as LoaderIcon,
   Sparkles,
@@ -67,9 +69,19 @@ export function UploadZone({ busy, errorMessage, onProcess }: Props) {
       }
       const fields = result.meta.fields ?? [];
       const map = detectColumns(fields);
-      if (!map.lastGift) {
+      // Name + email are the only truly required columns. Everything
+      // else — including the entire gift-date / gift-total stack — is
+      // optional. Event attendee lists with just names + emails + a
+      // TAGS column flow through cleanly.
+      if (!map.firstName && !map.lastName && !map.fullName) {
         setParseError(
-          "Couldn’t find a last-gift-date column. Try renaming a column to “last_gift_date”.",
+          "Couldn’t find a name column. Try renaming a column to “name”, “first_name + last_name”, or “full_name”.",
+        );
+        return;
+      }
+      if (!map.email) {
+        setParseError(
+          "Couldn’t find an email column. Try renaming a column to “email” — outreach needs an address to send to.",
         );
         return;
       }
@@ -88,7 +100,7 @@ export function UploadZone({ busy, errorMessage, onProcess }: Props) {
 
       if (survivors.length === 0) {
         setParseError(
-          "No rows had a parseable date in the last-gift column.",
+          "No rows had both a name and an email. Outreach needs at least those two fields per row.",
         );
         return;
       }
@@ -191,6 +203,8 @@ export function UploadZone({ busy, errorMessage, onProcess }: Props) {
   // ─── Default drop zone ────────────────────────────────────────────────
   return (
     <div style={{ maxWidth: 780 }}>
+      <UploadOptionsExplainer />
+
       <div
         onDragOver={(e) => {
           e.preventDefault();
@@ -245,12 +259,12 @@ export function UploadZone({ busy, errorMessage, onProcess }: Props) {
           )}
         </div>
         <h3 style={{ fontSize: 20, fontWeight: 800, margin: 0 }}>
-          {busy ? "Scoring your donors…" : "Drop your donor CSV here"}
+          {busy ? "Processing your list…" : "Drop your CSV here"}
         </h3>
         <p style={{ fontSize: 15, color: C.textSecondary, marginTop: 10 }}>
           {busy
-            ? "We’re running the RFM+ engine and saving your list."
-            : "or click to browse — we auto-detect column names from any CRM export."}
+            ? "We’re scoring rows with giving history and segmenting attendees by event year."
+            : "or click to browse — we only need a name + email per row. Giving columns are optional."}
         </p>
       </div>
 
@@ -643,6 +657,111 @@ function PreviewPanel({
         >
           Skip — upload without engagement segments
         </button>
+      </div>
+    </div>
+  );
+}
+
+// ─── Top-of-page explainer ──────────────────────────────────────────────
+
+/**
+ * Two-card explainer above the upload zone. Sets expectations that
+ * both donor lists (with giving history) and event attendee lists
+ * (names + emails only) flow through the same upload — so a fundraiser
+ * uploading a post-event CSV doesn't bounce when their export doesn't
+ * have a last-gift-date column.
+ *
+ * Pure messaging — cards aren't selectable. The same drop-zone handles
+ * both file shapes; column-detection auto-handles whichever fields are
+ * present.
+ */
+function UploadOptionsExplainer() {
+  return (
+    <div
+      style={{
+        display: "grid",
+        gridTemplateColumns: "repeat(auto-fit, minmax(250px, 1fr))",
+        gap: 12,
+        marginBottom: 24,
+      }}
+    >
+      <OptionCard
+        icon={<Heart size={18} color={C.amberDark} />}
+        iconBg={C.amberLight}
+        title="Donor data (with giving history)"
+        body="CSV from your CRM — names, emails, last gift dates, amounts. We score every donor 0–100 by reactivation priority."
+      />
+      <OptionCard
+        icon={<Calendar size={18} color="#0F766E" />}
+        iconBg="rgba(15,118,110,0.12)"
+        title="Event attendee data (names + emails only)"
+        body="Post-event export — no giving columns required. We segment attendees by event year (multi-year, recent, lapsed, first-time) and draft conversion-focused outreach."
+      />
+    </div>
+  );
+}
+
+function OptionCard({
+  icon,
+  iconBg,
+  title,
+  body,
+}: {
+  icon: React.ReactNode;
+  iconBg: string;
+  title: string;
+  body: string;
+}) {
+  return (
+    <div
+      style={{
+        display: "flex",
+        gap: 12,
+        padding: "14px 16px",
+        borderRadius: 14,
+        backgroundColor: C.surface,
+        border: `1px solid ${C.border}`,
+        alignItems: "flex-start",
+      }}
+    >
+      <div
+        aria-hidden
+        style={{
+          width: 34,
+          height: 34,
+          borderRadius: 10,
+          backgroundColor: iconBg,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          flexShrink: 0,
+        }}
+      >
+        {icon}
+      </div>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div
+          style={{
+            fontSize: 13.5,
+            fontWeight: 800,
+            color: C.text,
+            marginBottom: 4,
+            letterSpacing: -0.1,
+          }}
+        >
+          {title}
+        </div>
+        <p
+          style={{
+            margin: 0,
+            fontSize: 12.5,
+            lineHeight: 1.5,
+            color: C.textSecondary,
+            fontWeight: 500,
+          }}
+        >
+          {body}
+        </p>
       </div>
     </div>
   );

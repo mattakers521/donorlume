@@ -12,6 +12,12 @@ import type { RawDonorRow } from "@/lib/scoring";
 export type ColumnMap = {
   firstName: string | null;
   lastName: string | null;
+  /**
+   * Single-column fallback when the CSV has one "Name" / "Full Name" /
+   * "Donor Name" column instead of first/last split. Many event
+   * platforms (OneCause, GiveButter, etc.) export this way.
+   */
+  fullName: string | null;
   email: string | null;
   firstGift: string | null;
   lastGift: string | null;
@@ -35,10 +41,21 @@ export function detectColumns(headers: string[]): ColumnMap {
     return null;
   };
 
+  const firstName = find("first", "fname");
+  const lastName = find("last", "lname");
+  // Only look for a full-name fallback when first/last weren't found;
+  // otherwise a CRM that exports both "First Name" and "Donor Name"
+  // would double-count via the fullName branch in projectRow.
+  const fullName =
+    !firstName && !lastName
+      ? find("fullname", "donorname", "name", "contact")
+      : null;
+
   return {
-    firstName: find("first", "fname"),
-    lastName: find("last", "lname"),
-    email: find("email"),
+    firstName,
+    lastName,
+    fullName,
+    email: find("email", "emailaddress"),
     firstGift: find("firstgift", "firstdonat"),
     lastGift: find("lastgift", "lastdonat", "recentgift", "recentdate"),
     totalGifts: find("totalgift", "numgift", "giftcount", "frequency"),
@@ -69,28 +86,46 @@ const parseDate = (v: unknown): Date | null => {
 
 /**
  * Project a parsed CSV row through the detected column mapping into our
- * canonical RawDonorRow shape. Rows without a parseable last-gift date
- * are filtered out at the call site since they can't be scored.
+ * canonical RawDonorRow shape.
+ *
+ * Required fields: a name (first+last OR single full-name column) AND
+ * an email address. Everything else — including last_gift_date — is
+ * optional. Rows missing name or email are filtered at the call site.
+ *
+ * When giving columns are missing, the row still flows through: the
+ * scorer recognizes it as an attendee (tier "Attendee", reactivation
+ * score 0) and the AI prompt builder switches to first-time-conversion
+ * framing instead of reactivation.
  */
 export function projectRow(
   row: Record<string, unknown>,
   map: ColumnMap,
   index: number,
 ): RawDonorRow | null {
-  const lastGiftRaw = map.lastGift ? String(row[map.lastGift] ?? "") : "";
-  const lastGiftDate = parseDate(lastGiftRaw);
-  if (!lastGiftDate) return null;
-
-  const firstGiftRaw = map.firstGift ? String(row[map.firstGift] ?? "") : "";
   const fn = map.firstName ? String(row[map.firstName] ?? "") : "";
   const ln = map.lastName ? String(row[map.lastName] ?? "") : "";
-  const fullName = `${fn} ${ln}`.trim() || `Donor ${index + 1}`;
+  const splitName = `${fn} ${ln}`.trim();
+  const singleName = map.fullName
+    ? String(row[map.fullName] ?? "").trim()
+    : "";
+  const name = splitName || singleName;
+  const email = map.email
+    ? String(row[map.email] ?? "").trim()
+    : "";
+
+  // Both name + email are required. Without them the row can't be
+  // contacted via outreach, so persisting it costs storage without
+  // unlocking the only thing this app does with a donor row.
+  if (!name || !email) return null;
+
+  const firstGiftRaw = map.firstGift ? String(row[map.firstGift] ?? "") : "";
+  const lastGiftRaw = map.lastGift ? String(row[map.lastGift] ?? "") : "";
 
   return {
-    name: fullName,
-    email: map.email ? String(row[map.email] ?? "") : "",
+    name,
+    email,
     firstGiftDate: parseDate(firstGiftRaw),
-    lastGiftDate,
+    lastGiftDate: parseDate(lastGiftRaw),
     totalGifts: parseNumber(map.totalGifts ? row[map.totalGifts] : 0),
     totalGiven: parseNumber(map.totalGiven ? row[map.totalGiven] : 0),
     largestGift: parseNumber(map.largestGift ? row[map.largestGift] : 0),
