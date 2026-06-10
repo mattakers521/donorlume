@@ -164,21 +164,12 @@ export function LapsedClient({
     [router, threshold, toast],
   );
 
-  if (!list || donors.length === 0) {
-    return (
-      <UploadZone
-        busy={uploadBusy}
-        errorMessage={uploadError ?? loadError ?? null}
-        onProcess={upload}
-      />
-    );
-  }
-
   // Attendee-only list = every row lacks any giving signal. When true
   // we render AttendeeView instead of the lapsed-scoring table — the
   // tier/threshold controls and lapsed-priority stats are meaningless
   // here, and a blank scored table for a perfectly valid attendee
-  // upload feels broken.
+  // upload feels broken. `.every()` on an empty array returns true, so
+  // we guard the effect below with an explicit donors.length check.
   const isAttendeeList = donors.every(
     (d) =>
       d.lastGiftDate == null &&
@@ -202,6 +193,13 @@ export function LapsedClient({
   // current code can take another swing. The sessionStorage flag
   // prevents looping forever if recovery is genuinely impossible
   // (e.g. the original CSV truly had no year data anywhere).
+  //
+  // HOOK PLACEMENT: this useRef + useEffect MUST sit above the
+  // `if (!list || donors.length === 0) return ...` early return
+  // below. Moving them under the conditional return would skip the
+  // hooks when the list is empty, which crashes React with
+  // "Rendered fewer hooks than expected" the moment a user deletes
+  // their only list and the component re-renders with list=null.
   const backfillFiredRef = useRef(false);
   useEffect(() => {
     if (backfillFiredRef.current) return;
@@ -325,6 +323,22 @@ export function LapsedClient({
       );
     })();
   }, [isAttendeeList, donors]);
+
+  // ─── Early-return for empty state ────────────────────────────────
+  // MUST sit BELOW every hook above (Rules of Hooks). Previously this
+  // lived between the upload useCallback and the backfill useRef +
+  // useEffect, which crashed React the moment a user deleted their
+  // only list and we re-rendered with list=null — hooks would skip,
+  // hook count would drop, and React would throw on the next render.
+  if (!list || donors.length === 0) {
+    return (
+      <UploadZone
+        busy={uploadBusy}
+        errorMessage={uploadError ?? loadError ?? null}
+        onProcess={upload}
+      />
+    );
+  }
 
   return (
     <>
