@@ -78,6 +78,30 @@ export function AttendeeView({
   // attendees rise to the top. The fundraiser calls down from there.
   const [sortKey, setSortKey] = useState<SortKey>("score");
 
+  // TEMPORARY DIAGNOSTIC — surface what AttendeeView actually got
+  // from its parent so we can diff DOM-rendered values against
+  // server-side logs in one place. Remove once the score pipeline is
+  // confirmed working end to end.
+  const debugFirst = donors[0];
+  if (typeof window !== "undefined" && debugFirst) {
+    console.log(
+      "[attendee-view-debug] received donors.length =",
+      donors.length,
+    );
+    console.log(
+      "[attendee-view-debug] donors[0].name =",
+      debugFirst.name,
+    );
+    console.log(
+      "[attendee-view-debug] donors[0].enrichmentData =",
+      debugFirst.enrichmentData,
+    );
+    console.log(
+      "[attendee-view-debug] getEngagement(donors[0]) =",
+      getEngagement(debugFirst),
+    );
+  }
+
   // Filter chain: cohort filter (AND across selected ids) → search →
   // sort. Sort runs last so toggling search keeps the user looking at
   // the same conceptual ordering.
@@ -205,6 +229,50 @@ export function AttendeeView({
 
   return (
     <div>
+      {/* TEMPORARY DIAGNOSTIC banner — yellow-bg, monospace. Surfaces
+          donors[0].enrichmentData inline so we can read the actual
+          payload the component received without opening devtools.
+          Remove once score rendering is verified. */}
+      {debugFirst && (
+        <div
+          style={{
+            marginBottom: 16,
+            padding: "12px 14px",
+            borderRadius: 10,
+            backgroundColor: "#FFF8C5",
+            border: "1px solid #D4A72C",
+            fontSize: 11,
+            fontFamily:
+              "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace",
+            color: "#3B2F00",
+            lineHeight: 1.55,
+            whiteSpace: "pre-wrap",
+            wordBreak: "break-word",
+          }}
+        >
+          <div style={{ fontWeight: 800, marginBottom: 4 }}>
+            DIAGNOSTIC — donors[0]
+          </div>
+          <div>name: {debugFirst.name}</div>
+          <div>email: {debugFirst.email}</div>
+          <div>
+            enrichmentData typeof:{" "}
+            {String(typeof debugFirst.enrichmentData)}
+          </div>
+          <div>
+            enrichmentData === null:{" "}
+            {String(debugFirst.enrichmentData === null)}
+          </div>
+          <div>
+            enrichmentData JSON:{" "}
+            {JSON.stringify(debugFirst.enrichmentData)}
+          </div>
+          <div>
+            getEngagement(): {JSON.stringify(getEngagement(debugFirst))}
+          </div>
+        </div>
+      )}
+
       {/* Header — counts + New Upload */}
       <div
         style={{
