@@ -186,13 +186,15 @@ export function LapsedClient({
   // returned scores into local state. Idempotent: subsequent loads
   // find every row already has the engagement key and skip the call.
   //
-  // SECOND-CHANCE LOGIC: if a prior backfill produced empty scores
-  // across the board (yearsAttended=0 for every backfilled row), the
-  // year-recovery scan was too narrow at the time. Auto-retrigger
-  // ONCE with ?force=true so the broader recovery logic in the
-  // current code can take another swing. The sessionStorage flag
-  // prevents looping forever if recovery is genuinely impossible
-  // (e.g. the original CSV truly had no year data anywhere).
+  // Fires only when at least one attendee row is COMPLETELY missing
+  // an `enrichmentData.engagement` key. If every row already carries
+  // a score — whatever the value — we trust it and never touch it.
+  // The previous "second-chance" / force-rerun path could re-trigger
+  // backfill against good data and overwrite real scores with the
+  // cohort-name-recovery approximation; removed entirely. The reload
+  // script and the upload route both write correct scores up-front,
+  // so this effect is now strictly a one-shot recovery for legacy
+  // rows pre-dating the engagement feature.
   //
   // HOOK PLACEMENT: this useRef + useEffect MUST sit above the
   // `if (!list || donors.length === 0) return ...` early return
@@ -211,38 +213,19 @@ export function LapsedClient({
         | null;
       return !enrichment || !enrichment.engagement;
     });
-    const backfilledEmpty = donors.filter((d) => {
-      const enrichment = d.enrichmentData as
-        | { engagement?: { backfilled?: boolean; yearsAttended?: number } }
-        | null;
-      const e = enrichment?.engagement;
-      return e?.backfilled === true && (e.yearsAttended ?? 0) === 0;
-    });
 
-    const forceRetried =
-      typeof window !== "undefined" &&
-      window.sessionStorage.getItem("engagement-backfill-force-tried") ===
-        "1";
-    const needsForce =
-      !forceRetried &&
-      missingEngagement.length === 0 &&
-      backfilledEmpty.length > 0 &&
-      backfilledEmpty.length === donors.length;
-
-    if (missingEngagement.length === 0 && !needsForce) return;
-
-    backfillFiredRef.current = true;
-    const force = needsForce;
-    if (force && typeof window !== "undefined") {
-      window.sessionStorage.setItem(
-        "engagement-backfill-force-tried",
-        "1",
+    if (missingEngagement.length === 0) {
+      console.log(
+        `[engagement-backfill] skip: all ${donors.length} attendees already have engagement scores`,
       );
+      return;
     }
 
+    backfillFiredRef.current = true;
     console.log(
-      `[engagement-backfill] triggering total=${donors.length} missing=${missingEngagement.length} backfilledEmpty=${backfilledEmpty.length} force=${force}`,
+      `[engagement-backfill] triggering total=${donors.length} missing=${missingEngagement.length}`,
     );
+    const force = false;
 
     void (async () => {
       // Loop the batched endpoint until done. Each call processes at

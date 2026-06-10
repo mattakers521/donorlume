@@ -7,18 +7,16 @@ export const dynamic = "force-dynamic";
 /**
  * Cap the donor fetch so a 2k+ row attendee list doesn't blow past
  * Vercel's serverless memory/time limits during the RSC payload
- * serialization. The /lapsed UI was crashing in prod with an opaque
- * server-error digest after a VETLIFE-scale upload — 2,178 donors
- * × full enrichmentData × cohort joins × claimedBy joins serialized
- * to >25MB of RSC stream which tripped the function timeout before
- * the page could return.
+ * serialization. Raised to 2,500 after VETLIFE-scale uploads
+ * (2,178 attendees) were being truncated to 1,500 in the UI — the
+ * cap was leftover from an earlier crash-safety pass before we
+ * trimmed the per-donor payload.
  *
  * If the list is bigger than this, we slice to the most-recent
- * batch and surface the truncation to the client so the UI can
- * mention it. Anything that needs cross-list aggregates already
- * lives on /donors and /reports which paginate properly.
+ * batch. Anything that needs cross-list aggregates already lives
+ * on /donors and /reports which paginate properly.
  */
-const MAX_DONORS_PER_RENDER = 1500;
+const MAX_DONORS_PER_RENDER = 2500;
 
 export default async function LapsedPage() {
   const { org, userId, user, orgRole } = await getOrgContext();
@@ -35,6 +33,23 @@ export default async function LapsedPage() {
     console.error("[lapsed-page] donorList load failed", e);
     loadError =
       e instanceof Error ? e.message : "Couldn't load your donor list.";
+  }
+
+  // Diagnostic: dump the first 3 donors' enrichmentData server-side
+  // so we can verify what's actually being shipped to the client. If
+  // the UI shows wrong scores while the DB has right ones, this log
+  // identifies whether the data is lost between the query and the
+  // client mount.
+  if (list && list.donors.length > 0) {
+    console.log(
+      `[lapsed-page] org=${org.id} list=${list.id} donorsReturned=${list.donors.length} totalDonorsRecorded=${list.totalDonors}`,
+    );
+    for (let i = 0; i < Math.min(3, list.donors.length); i++) {
+      const d = list.donors[i]!;
+      console.log(
+        `[lapsed-page] donor[${i}] name=${d.name} enrichmentData=${JSON.stringify(d.enrichmentData)}`,
+      );
+    }
   }
 
   // Cohort definitions power the filter bar. Phase 1 surfaces the
