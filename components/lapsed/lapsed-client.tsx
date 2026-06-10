@@ -30,6 +30,9 @@ type Props = {
   cohorts: CohortDefinition[];
   currentUser: { id: string; name: string | null; email: string };
   orgRole: "OWNER" | "ADMIN" | "MEMBER" | "VIEWER";
+  /** Set when the page-load donor query failed. We render a soft
+   *  error banner instead of crashing the route. */
+  loadError?: string | null;
 };
 
 export function LapsedClient({
@@ -38,6 +41,7 @@ export function LapsedClient({
   cohorts: initialCohorts,
   currentUser,
   orgRole,
+  loadError,
 }: Props) {
   const router = useRouter();
   const { toast } = useToast();
@@ -142,7 +146,7 @@ export function LapsedClient({
     return (
       <UploadZone
         busy={uploadBusy}
-        errorMessage={uploadError}
+        errorMessage={uploadError ?? loadError ?? null}
         onProcess={upload}
       />
     );
@@ -221,49 +225,82 @@ export function LapsedClient({
     );
 
     void (async () => {
-      try {
-        const res = await fetch(
-          `/api/donors/backfill-engagement${force ? "?force=true" : ""}`,
-          { method: "POST" },
-        );
-        if (!res.ok) {
-          console.warn(
-            "[engagement-backfill] HTTP failed",
-            res.status,
-            await res.text().catch(() => ""),
+      // Loop the batched endpoint until done. Each call processes at
+      // most BATCH_SIZE (200) donors so it can't approach Vercel's
+      // function timeout — and the client gets to apply patches as
+      // each batch returns so the UI updates progressively instead
+      // of waiting for all 2,000+ rows.
+      let offset = 0;
+      let safetyHops = 0;
+      const MAX_HOPS = 50; // 50 × 200 = 10,000 donors hard ceiling
+      while (safetyHops < MAX_HOPS) {
+        safetyHops++;
+        try {
+          const params = new URLSearchParams();
+          if (force) params.set("force", "true");
+          if (offset > 0) params.set("offset", String(offset));
+          const qs = params.toString();
+          const res = await fetch(
+            `/api/donors/backfill-engagement${qs ? `?${qs}` : ""}`,
+            { method: "POST" },
           );
+          if (!res.ok) {
+            console.warn(
+              "[engagement-backfill] HTTP failed",
+              res.status,
+              await res.text().catch(() => ""),
+            );
+            return;
+          }
+          const body = (await res.json()) as {
+            scanned?: number;
+            updated?: number;
+            cleared?: number;
+            sample?: unknown;
+            totalAttendees?: number;
+            nextOffset?: number | null;
+            done?: boolean;
+            updates?: { id: string; enrichmentData: unknown }[];
+          };
+          console.log(
+            `[engagement-backfill] batch hop=${safetyHops} scanned=${body.scanned} updated=${body.updated} cleared=${body.cleared ?? 0} done=${body.done} nextOffset=${body.nextOffset}`,
+          );
+          if (body.sample && safetyHops === 1) {
+            // Only log the sample from the first batch — subsequent
+            // batches just spam the console without adding signal.
+            console.log("[engagement-backfill] sample", body.sample);
+          }
+          if (body.updates && body.updates.length > 0) {
+            const patchById = new Map(
+              body.updates.map((u) => [u.id, u.enrichmentData]),
+            );
+            setDonors((prev) =>
+              prev.map((d) => {
+                const patch = patchById.get(d.id);
+                if (!patch) return d;
+                return {
+                  ...d,
+                  enrichmentData:
+                    patch as DonorWithCohorts["enrichmentData"],
+                };
+              }),
+            );
+          }
+          if (body.done || body.nextOffset == null) {
+            console.log(
+              `[engagement-backfill] complete after ${safetyHops} hop${safetyHops === 1 ? "" : "s"}`,
+            );
+            return;
+          }
+          offset = body.nextOffset;
+        } catch (e) {
+          console.warn("[engagement-backfill] threw", e);
           return;
         }
-        const body = (await res.json()) as {
-          scanned?: number;
-          updated?: number;
-          cleared?: number;
-          sample?: unknown;
-          updates?: { id: string; enrichmentData: unknown }[];
-        };
-        console.log(
-          `[engagement-backfill] response scanned=${body.scanned} updated=${body.updated} cleared=${body.cleared ?? 0}`,
-        );
-        if (body.sample) {
-          console.log("[engagement-backfill] sample", body.sample);
-        }
-        if (!body.updates || body.updates.length === 0) return;
-        const patchById = new Map(
-          body.updates.map((u) => [u.id, u.enrichmentData]),
-        );
-        setDonors((prev) =>
-          prev.map((d) => {
-            const patch = patchById.get(d.id);
-            if (!patch) return d;
-            return {
-              ...d,
-              enrichmentData: patch as DonorWithCohorts["enrichmentData"],
-            };
-          }),
-        );
-      } catch (e) {
-        console.warn("[engagement-backfill] threw", e);
       }
+      console.warn(
+        `[engagement-backfill] hit MAX_HOPS=${MAX_HOPS} — bailing`,
+      );
     })();
   }, [isAttendeeList, donors]);
 

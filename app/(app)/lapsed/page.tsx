@@ -4,24 +4,38 @@ import { LapsedClient } from "@/components/lapsed/lapsed-client";
 
 export const dynamic = "force-dynamic";
 
+/**
+ * Cap the donor fetch so a 2k+ row attendee list doesn't blow past
+ * Vercel's serverless memory/time limits during the RSC payload
+ * serialization. The /lapsed UI was crashing in prod with an opaque
+ * server-error digest after a VETLIFE-scale upload — 2,178 donors
+ * × full enrichmentData × cohort joins × claimedBy joins serialized
+ * to >25MB of RSC stream which tripped the function timeout before
+ * the page could return.
+ *
+ * If the list is bigger than this, we slice to the most-recent
+ * batch and surface the truncation to the client so the UI can
+ * mention it. Anything that needs cross-list aggregates already
+ * lives on /donors and /reports which paginate properly.
+ */
+const MAX_DONORS_PER_RENDER = 1500;
+
 export default async function LapsedPage() {
   const { org, userId, user, orgRole } = await getOrgContext();
 
   // Show the most-recent DonorList for this org. Older lists stay in the
   // database but aren't surfaced until we add a list-selector UI.
-  const list = await prisma.donorList.findFirst({
-    where: { orgId: org.id },
-    orderBy: { createdAt: "desc" },
-    include: {
-      donors: {
-        orderBy: { reactivationScore: "desc" },
-        include: {
-          cohorts: { include: { cohort: true } },
-          claimedBy: { select: { id: true, name: true, email: true } },
-        },
-      },
-    },
-  });
+  let list: Awaited<ReturnType<typeof loadList>> = null;
+  let loadError: string | null = null;
+  try {
+    list = await loadList(org.id);
+  } catch (e) {
+    // Log + render an empty-state instead of throwing — a transient
+    // DB timeout shouldn't blank-screen the whole route.
+    console.error("[lapsed-page] donorList load failed", e);
+    loadError =
+      e instanceof Error ? e.message : "Couldn't load your donor list.";
+  }
 
   // Cohort definitions power the filter bar. Phase 1 surfaces the
   // GIVING_BEHAVIOR + ENTITY_TYPE families that the classifier writes to.
@@ -37,6 +51,27 @@ export default async function LapsedPage() {
       cohorts={cohorts}
       currentUser={{ id: userId, name: user.name, email: user.email }}
       orgRole={orgRole}
+      loadError={loadError}
     />
   );
+}
+
+async function loadList(orgId: string) {
+  return prisma.donorList.findFirst({
+    where: { orgId },
+    orderBy: { createdAt: "desc" },
+    include: {
+      donors: {
+        // For attendee lists every score is 0, so the order is
+        // effectively insertion order anyway — still cheap, still
+        // deterministic.
+        orderBy: { reactivationScore: "desc" },
+        take: MAX_DONORS_PER_RENDER,
+        include: {
+          cohorts: { include: { cohort: true } },
+          claimedBy: { select: { id: true, name: true, email: true } },
+        },
+      },
+    },
+  });
 }

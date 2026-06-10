@@ -36,15 +36,30 @@ export const dynamic = "force-dynamic";
  * is a 5-donor dump (name + cohort names + recovered years + final
  * score) so the client console can see exactly what was found.
  */
+/** Cap one POST at this many donors so it never approaches Vercel's
+ *  function-timeout. Sequential prisma.donor.update calls are ~50-100ms
+ *  each on Neon; 200 fits comfortably under a 60s budget with margin. */
+const BATCH_SIZE = 200;
+
 export const POST = withOrg(async (req, { auth }) => {
   const url = new URL(req.url);
   const force = url.searchParams.get("force") === "true";
-
-  console.log(
-    `[backfill-engagement] start org=${auth.org.id} force=${force}`,
+  const offset = Math.max(0, Number(url.searchParams.get("offset") ?? 0));
+  const requestedLimit = Number(
+    url.searchParams.get("limit") ?? BATCH_SIZE,
+  );
+  const limit = Math.max(
+    1,
+    Math.min(BATCH_SIZE, Number.isFinite(requestedLimit) ? requestedLimit : BATCH_SIZE),
   );
 
-  // Pull every attendee donor in the org.
+  console.log(
+    `[backfill-engagement] start org=${auth.org.id} offset=${offset} limit=${limit} force=${force}`,
+  );
+
+  // Page through attendee donors by (createdAt, id) so the client can
+  // call repeatedly with rising offsets until done. Stable order across
+  // calls — no donor skipped, no donor double-processed.
   const donors = await prisma.donor.findMany({
     where: {
       donorList: { orgId: auth.org.id },
@@ -61,10 +76,30 @@ export const POST = withOrg(async (req, { auth }) => {
     include: {
       cohorts: { include: { cohort: true } },
     },
+    orderBy: [{ createdAt: "asc" }, { id: "asc" }],
+    skip: offset,
+    take: limit,
+  });
+
+  // Total count so the client knows when to stop looping. Cheap —
+  // same WHERE, just count.
+  const totalAttendees = await prisma.donor.count({
+    where: {
+      donorList: { orgId: auth.org.id },
+      lastGiftDate: null,
+      AND: [
+        {
+          OR: [{ totalGifts: null }, { totalGifts: 0 }],
+        },
+        {
+          OR: [{ totalGiven: null }, { totalGiven: 0 }],
+        },
+      ],
+    },
   });
 
   console.log(
-    `[backfill-engagement] attendees found=${donors.length}`,
+    `[backfill-engagement] batch loaded=${donors.length} totalAttendees=${totalAttendees}`,
   );
 
   const now = new Date();
@@ -157,8 +192,13 @@ export const POST = withOrg(async (req, { auth }) => {
     }
   }
 
+  const nextOffset = offset + donors.length;
+  // Done when the batch returned fewer than `limit` rows (final page)
+  // OR when nextOffset has caught up to the total count.
+  const done = donors.length < limit || nextOffset >= totalAttendees;
+
   console.log(
-    `[backfill-engagement] done scanned=${donors.length} updated=${updates.length} cleared=${cleared}`,
+    `[backfill-engagement] done scanned=${donors.length} updated=${updates.length} cleared=${cleared} nextOffset=${nextOffset} done=${done}`,
   );
   if (sample.length > 0) {
     console.log(
@@ -172,6 +212,9 @@ export const POST = withOrg(async (req, { auth }) => {
     updated: updates.length,
     cleared,
     sample,
+    totalAttendees,
+    nextOffset: done ? null : nextOffset,
+    done,
     updates,
   });
 });
