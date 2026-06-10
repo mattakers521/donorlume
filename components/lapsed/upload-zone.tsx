@@ -19,14 +19,75 @@ import { C, brandGradient, shadow } from "@/lib/design";
 import { SAMPLE_CSV } from "@/lib/csv-template";
 import {
   detectCohortColumns,
-  extractCsvTags,
   type DetectedCohortColumn,
 } from "@/lib/cohorts/csv-detection";
 import {
   detectColumns,
   projectRow,
 } from "@/lib/csv-mapping";
+import type { ColumnMap } from "@/lib/csv-mapping";
 import type { RawDonorRow } from "@/lib/scoring";
+
+/**
+ * Returns the set of CSV column names whose values contain at least
+ * one 4-digit year in the 2000-2099 range. Run alongside (not inside)
+ * the categorical-cohort detector so a high-cardinality TAGS column
+ * — every row's value a unique combo like `"Vet Fest 2025","Vet Fest 2024"`
+ * — is still detected and forwarded to the server for engagement
+ * scoring. Skips headers already mapped to known donor fields.
+ */
+function findYearBearingColumns(
+  rows: Record<string, unknown>[],
+  headers: string[],
+  map: ColumnMap,
+): string[] {
+  const mapped = new Set(
+    Object.values(map).filter((v): v is string => typeof v === "string"),
+  );
+  const yearRe = /\b(20\d{2})\b/;
+  const found: string[] = [];
+  for (const h of headers) {
+    if (mapped.has(h)) continue;
+    // Sample up to the first ~50 populated values — enough evidence
+    // without paying full O(n) on every column for a 5k-row CSV.
+    let scanned = 0;
+    let hits = 0;
+    for (const r of rows) {
+      const v = r[h];
+      if (v == null) continue;
+      const s = String(v).trim();
+      if (!s) continue;
+      scanned++;
+      if (yearRe.test(s)) hits++;
+      if (scanned >= 50 || hits >= 5) break;
+    }
+    if (hits > 0) found.push(h);
+  }
+  return found;
+}
+
+/**
+ * Build the per-donor tag bag the server expects. Merges the user-
+ * selected cohort-column values with EVERY year-bearing column's
+ * value. Year columns are always included so the server-side
+ * extractAttendeeYears + scoreEngagement chain always has data —
+ * even when the user opted nothing in as a cohort source.
+ */
+function buildTagBag(
+  row: Record<string, unknown>,
+  cohortColumns: readonly string[],
+  yearCols: readonly string[],
+): Record<string, string> {
+  const out: Record<string, string> = {};
+  const merged = new Set<string>([...cohortColumns, ...yearCols]);
+  for (const col of merged) {
+    const v = row[col];
+    if (v == null) continue;
+    const s = String(v).trim();
+    if (s) out[col] = s;
+  }
+  return out;
+}
 
 type Props = {
   busy: boolean;
@@ -45,6 +106,10 @@ type PreviewState = {
   /** Original parsed CSV rows aligned by index with `donors`. */
   csvRows: Record<string, unknown>[];
   detected: DetectedCohortColumn[];
+  /** Year-bearing columns (independent of categorical-cohort
+   *  detection). Always included in csvTags so the server-side
+   *  engagement scorer can read years. */
+  yearCols: string[];
 };
 
 export function UploadZone({ busy, errorMessage, onProcess }: Props) {
@@ -137,13 +202,33 @@ export function UploadZone({ busy, errorMessage, onProcess }: Props) {
         map,
       );
 
-      // No categorical columns to import? Skip the preview, just upload.
+      // Year-bearing columns are detected separately and ALWAYS sent
+      // to the server in csvTags, regardless of the categorical
+      // cohort gate. The categorical detector skips columns with >50
+      // unique values, which kills high-cardinality TAGS columns like
+      // VETLIFE's `"Vet Fest 2025","Vet Fest 2024"` per-row combos —
+      // every row's value is unique, so the column never qualifies
+      // as a cohort. But the server-side engagement scorer reads
+      // years out of those exact strings, so we MUST include them
+      // even when the cohort preview shows nothing.
+      const yearCols = findYearBearingColumns(
+        survivors.map((s) => s.csvRow),
+        fields,
+        map,
+      );
+
+      // No categorical columns to import? Still send year-bearing
+      // column values so engagement scoring + attendee cohort
+      // assignment work end to end.
       if (detected.length === 0) {
+        const tags = survivors.map((s) =>
+          buildTagBag(s.csvRow, [], yearCols),
+        );
         await onProcess(
           survivors.map((s) => s.raw),
           fileName,
           [],
-          survivors.map(() => ({})),
+          tags,
         );
         return;
       }
@@ -154,6 +239,7 @@ export function UploadZone({ busy, errorMessage, onProcess }: Props) {
         donors: survivors.map((s) => s.raw),
         csvRows: survivors.map((s) => s.csvRow),
         detected,
+        yearCols,
       });
       setSelectedCohortCols(new Set(detected.map((d) => d.column)));
     } catch (e) {
@@ -188,8 +274,12 @@ export function UploadZone({ busy, errorMessage, onProcess }: Props) {
 
   const submitPreview = async (cohortColumns: string[]) => {
     if (!preview) return;
+    // Build per-donor tag bags from BOTH user-selected cohort columns
+    // AND every year-bearing column. Year columns are sent even when
+    // the user didn't opt them in as engagement-cohort sources, so
+    // the server-side scoreEngagement() always has years to extract.
     const tags = preview.csvRows.map((row) =>
-      extractCsvTags(row, cohortColumns),
+      buildTagBag(row, cohortColumns, preview.yearCols),
     );
     await onProcess(preview.donors, preview.fileName, cohortColumns, tags);
     setPreview(null);

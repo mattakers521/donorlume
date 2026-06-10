@@ -53,24 +53,6 @@ export function LapsedClient({
     initialList?.donors ?? [],
   );
 
-  // TEMPORARY DIAGNOSTIC — log the first donor received from the
-  // server so we can prove the engagement data made it across the
-  // RSC boundary intact. Pairs with the visible debug banner in
-  // AttendeeView. Remove once the score pipeline is verified.
-  if (typeof window !== "undefined" && initialList?.donors?.[0]) {
-    console.log(
-      "[lapsed-client-debug] initialList.donors.length =",
-      initialList.donors.length,
-    );
-    console.log(
-      "[lapsed-client-debug] initialList.donors[0].name =",
-      initialList.donors[0].name,
-    );
-    console.log(
-      "[lapsed-client-debug] initialList.donors[0].enrichmentData =",
-      initialList.donors[0].enrichmentData,
-    );
-  }
   const [cohorts, setCohorts] =
     useState<CohortDefinition[]>(initialCohorts);
   const [threshold, setThreshold] = useState(lapsedThresholdMonths);

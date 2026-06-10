@@ -35,23 +35,6 @@ export default async function LapsedPage() {
       e instanceof Error ? e.message : "Couldn't load your donor list.";
   }
 
-  // Diagnostic: dump the first 3 donors' enrichmentData server-side
-  // so we can verify what's actually being shipped to the client. If
-  // the UI shows wrong scores while the DB has right ones, this log
-  // identifies whether the data is lost between the query and the
-  // client mount.
-  if (list && list.donors.length > 0) {
-    console.log(
-      `[lapsed-page] org=${org.id} list=${list.id} donorsReturned=${list.donors.length} totalDonorsRecorded=${list.totalDonors}`,
-    );
-    for (let i = 0; i < Math.min(3, list.donors.length); i++) {
-      const d = list.donors[i]!;
-      console.log(
-        `[lapsed-page] donor[${i}] name=${d.name} enrichmentData=${JSON.stringify(d.enrichmentData)}`,
-      );
-    }
-  }
-
   // Cohort definitions power the filter bar. Phase 1 surfaces the
   // GIVING_BEHAVIOR + ENTITY_TYPE families that the classifier writes to.
   const cohorts = await prisma.cohortDefinition.findMany({
