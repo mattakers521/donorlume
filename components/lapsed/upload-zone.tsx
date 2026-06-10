@@ -59,9 +59,14 @@ export function UploadZone({ busy, errorMessage, onProcess }: Props) {
   const processCSV = async (text: string, fileName: string) => {
     setParseError(null);
     try {
-      const result = Papa.parse<Record<string, unknown>>(text.trim(), {
+      // Strip BOM (U+FEFF) explicitly. ES2019 `trim()` covers it on
+      // modern V8, but older browsers + some edge runtimes leave it
+      // in, breaking the first header lookup. Be explicit.
+      const cleaned = text.replace(/^﻿/, "").trim();
+      const result = Papa.parse<Record<string, unknown>>(cleaned, {
         header: true,
         skipEmptyLines: true,
+        transformHeader: (h) => h.trim(),
       });
       if (result.data.length === 0) {
         setParseError("CSV is empty.");
@@ -93,9 +98,23 @@ export function UploadZone({ busy, errorMessage, onProcess }: Props) {
         raw: RawDonorRow;
         csvRow: Record<string, unknown>;
       }[] = [];
+      // Dedup on lowercased email so re-uploading the same list (or a
+      // CSV with the same person listed multiple times — common when a
+      // CRM joins gift records onto contacts) doesn't pile up duplicate
+      // Donor rows. First occurrence wins so the original ordering is
+      // preserved.
+      const seenEmails = new Set<string>();
+      let duplicateCount = 0;
       result.data.forEach((row, i) => {
         const projected = projectRow(row, map, i);
-        if (projected) survivors.push({ raw: projected, csvRow: row });
+        if (!projected) return;
+        const key = projected.email.trim().toLowerCase();
+        if (seenEmails.has(key)) {
+          duplicateCount++;
+          return;
+        }
+        seenEmails.add(key);
+        survivors.push({ raw: projected, csvRow: row });
       });
 
       if (survivors.length === 0) {
@@ -103,6 +122,11 @@ export function UploadZone({ busy, errorMessage, onProcess }: Props) {
           "No rows had both a name and an email. Outreach needs at least those two fields per row.",
         );
         return;
+      }
+      if (duplicateCount > 0) {
+        console.info(
+          `[upload] dropped ${duplicateCount} duplicate-email row${duplicateCount === 1 ? "" : "s"}`,
+        );
       }
 
       // Cohort-column detection runs only on rows that will actually be

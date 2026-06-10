@@ -110,7 +110,19 @@ export const POST = withOrg(async (req, { auth }) => {
   // prompt builder switches to first-time-conversion framing when it
   // sees this state, and attendee.ts assigns them into the four
   // attendee cohorts via parsed event-year tags.
-  const scoreable = rawWithTags;
+  //
+  // Email dedup: the client already drops duplicates before POSTing,
+  // but a direct API call could bypass that, so we also dedup
+  // server-side. Lowercased compare matches the upload-zone logic.
+  // First occurrence wins to preserve input ordering.
+  const seenEmails = new Set<string>();
+  const scoreable: typeof rawWithTags = [];
+  for (const r of rawWithTags) {
+    const key = r.raw.email.trim().toLowerCase();
+    if (!key || seenEmails.has(key)) continue;
+    seenEmails.add(key);
+    scoreable.push(r);
+  }
   if (scoreable.length === 0) {
     return NextResponse.json(
       { error: "No rows had a name + email." },
