@@ -36,10 +36,28 @@ export function detectColumns(headers: string[]): ColumnMap {
     h.toLowerCase().replace(/[^a-z0-9]/g, ""),
   );
 
+  /**
+   * Tracks headers that have already been claimed by a prior `find()`
+   * call so generic needles (e.g. "address") don't double-bind to a
+   * header that a more specific needle (e.g. "email" → "Email Address")
+   * already took.
+   *
+   * Before this guard, VETLIFE-style CSVs with both an "Email Address"
+   * column AND a separate "Address" column would map `email` and
+   * `address` to the SAME header — the address-completeness score
+   * undercounted by ~75% and the actual Address column was ignored.
+   */
+  const taken = new Set<string>();
+
   const find = (...needles: string[]): string | null => {
     for (const needle of needles) {
-      const i = normalized.findIndex((h) => h.includes(needle));
-      if (i >= 0) return headers[i];
+      const i = normalized.findIndex(
+        (h, idx) => h.includes(needle) && !taken.has(headers[idx]),
+      );
+      if (i >= 0) {
+        taken.add(headers[i]);
+        return headers[i];
+      }
     }
     return null;
   };
