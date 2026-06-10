@@ -28,6 +28,7 @@ import {
   CohortOverflow,
 } from "@/components/lapsed/cohort-badge";
 import { CohortFilter } from "@/components/lapsed/cohort-filter";
+import { DeleteListButton } from "@/components/lapsed/delete-list-button";
 import type { DonorWithCohorts } from "@/components/lapsed/lapsed-client";
 
 type SortKey = "score" | "name" | "totalGiven" | "daysSinceLast";
@@ -46,6 +47,9 @@ type Props = {
   thresholdMonths: number;
   onThresholdChange: (months: number) => void;
   onNewUpload: () => void;
+  /** DELETE the entire list. Throws on failure so the modal surfaces
+   *  the error inline. */
+  onDeleteList: () => Promise<void>;
   currentUser: { id: string; name: string | null; email: string };
   orgRole: "OWNER" | "ADMIN" | "MEMBER" | "VIEWER";
   /** Optimistic-update hook — bubbles the new claim state up to the
@@ -60,6 +64,7 @@ export function ScoredView({
   thresholdMonths,
   onThresholdChange,
   onNewUpload,
+  onDeleteList,
   currentUser,
   orgRole,
   onClaimUpdate,
@@ -201,7 +206,18 @@ export function ScoredView({
           {totalUploaded} uploaded · {stats.lapsedCount} lapsed (
           {thresholdMonths}+ months)
         </p>
-        <div style={{ display: "flex", gap: 10 }}>
+        <div
+          style={{
+            display: "flex",
+            gap: 6,
+            alignItems: "center",
+            flexWrap: "wrap",
+          }}
+        >
+          <DeleteListButton
+            count={totalUploaded}
+            onConfirm={onDeleteList}
+          />
           <button
             type="button"
             onClick={onNewUpload}

@@ -27,6 +27,7 @@ import type { CohortDefinition } from "@prisma/client";
 import { C, brandGradient, shadow } from "@/lib/design";
 import { CohortBadge, CohortOverflow } from "@/components/lapsed/cohort-badge";
 import { CohortFilter } from "@/components/lapsed/cohort-filter";
+import { DeleteListButton } from "@/components/lapsed/delete-list-button";
 import type { DonorWithCohorts } from "@/components/lapsed/lapsed-client";
 
 type EngagementBlob = {
@@ -55,6 +56,9 @@ type Props = {
   cohorts: CohortDefinition[];
   totalUploaded: number;
   onNewUpload: () => void;
+  /** DELETE the entire list. Throws on failure so the modal can
+   *  surface the error inline. */
+  onDeleteList: () => Promise<void>;
 };
 
 type SortKey = "score" | "name" | "years";
@@ -64,6 +68,7 @@ export function AttendeeView({
   cohorts,
   totalUploaded,
   onNewUpload,
+  onDeleteList,
 }: Props) {
   const router = useRouter();
   const [search, setSearch] = useState("");
@@ -217,26 +222,37 @@ export function AttendeeView({
           {distinctSegments.toLocaleString()} segment
           {distinctSegments === 1 ? "" : "s"} found
         </p>
-        <button
-          type="button"
-          onClick={onNewUpload}
+        <div
           style={{
             display: "flex",
             alignItems: "center",
             gap: 6,
-            padding: "10px 20px",
-            borderRadius: 12,
-            border: "none",
-            backgroundColor: "#F2F2F7",
-            color: C.textSecondary,
-            fontSize: 13,
-            fontWeight: 700,
-            cursor: "pointer",
-            fontFamily: "var(--font-jakarta), -apple-system, sans-serif",
+            flexWrap: "wrap",
           }}
         >
-          <Upload size={15} /> New Upload
-        </button>
+          <DeleteListButton count={totalUploaded} onConfirm={onDeleteList} />
+          <button
+            type="button"
+            onClick={onNewUpload}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 6,
+              padding: "10px 20px",
+              borderRadius: 12,
+              border: "none",
+              backgroundColor: "#F2F2F7",
+              color: C.textSecondary,
+              fontSize: 13,
+              fontWeight: 700,
+              cursor: "pointer",
+              fontFamily:
+                "var(--font-jakarta), -apple-system, sans-serif",
+            }}
+          >
+            <Upload size={15} /> New Upload
+          </button>
+        </div>
       </div>
 
       {/* Primary CTA — pinned above the table so it's the first thing

@@ -64,6 +64,28 @@ export function LapsedClient({
     setUploadError(null);
   }, []);
 
+  const deleteList = useCallback(async () => {
+    if (!list) return;
+    const res = await fetch(
+      `/api/donors/lists/${encodeURIComponent(list.id)}`,
+      { method: "DELETE" },
+    );
+    if (!res.ok) {
+      const body = (await res.json().catch(() => ({}))) as {
+        error?: string;
+      };
+      throw new Error(body.error ?? `Delete failed (${res.status})`);
+    }
+    // Reset local state to the empty-upload view immediately. The
+    // router.refresh kicks the server component to re-fetch in the
+    // background so other tabs/devices see the deletion the next
+    // time they navigate — but the user doesn't have to wait for it.
+    setList(null);
+    setDonors([]);
+    setUploadError(null);
+    router.refresh();
+  }, [list, router]);
+
   const changeThreshold = useCallback((months: number) => {
     setThreshold(months);
     const cutoff = new Date();
@@ -313,6 +335,7 @@ export function LapsedClient({
           cohorts={cohorts}
           totalUploaded={list.totalDonors}
           onNewUpload={newUpload}
+          onDeleteList={deleteList}
         />
       ) : (
         <ScoredView
@@ -322,6 +345,7 @@ export function LapsedClient({
           thresholdMonths={threshold}
           onThresholdChange={changeThreshold}
           onNewUpload={newUpload}
+          onDeleteList={deleteList}
           currentUser={currentUser}
           orgRole={orgRole}
           onClaimUpdate={(donorId, next) => {
