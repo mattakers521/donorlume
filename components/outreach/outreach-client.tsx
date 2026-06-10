@@ -166,9 +166,40 @@ export function OutreachClient({
     () => [...realDonors, ...manualContacts, ...sampleDonors],
     [realDonors, manualContacts, sampleDonors],
   );
-  const [selected, setSelected] = useState<Set<string>>(
-    () => new Set(realDonors.map((d) => d.id)),
-  );
+  /**
+   * Initial selection.
+   *
+   * Default: every real donor passed in by the server (legacy behavior —
+   * the user landed here from /lapsed-handoff, ?cohort=, or the no-
+   * params load-all path with the intent to draft to everyone).
+   *
+   * Override: when AttendeeView CTA dropped a comma-bombed selection
+   * into sessionStorage, narrow the set to just those ids. Runs in the
+   * useState initializer so the first paint is correct — using a
+   * useEffect would briefly flash the wrong checked state. The key is
+   * cleared immediately so a back-button-and-retry doesn't recycle
+   * stale ids.
+   */
+  const [selected, setSelected] = useState<Set<string>>(() => {
+    const fallback = new Set(realDonors.map((d) => d.id));
+    if (typeof window === "undefined") return fallback;
+    try {
+      const stored = window.sessionStorage.getItem(
+        "outreach:pre-selected-donors",
+      );
+      if (!stored) return fallback;
+      const ids = JSON.parse(stored) as unknown;
+      if (!Array.isArray(ids)) return fallback;
+      window.sessionStorage.removeItem("outreach:pre-selected-donors");
+      const realIdSet = new Set(realDonors.map((d) => d.id));
+      const narrowed = new Set(
+        (ids as string[]).filter((id) => realIdSet.has(id)),
+      );
+      return narrowed.size > 0 ? narrowed : fallback;
+    } catch {
+      return fallback;
+    }
+  });
 
   const addManualContact = useCallback(
     (input: { name: string; email: string; notes: string }) => {

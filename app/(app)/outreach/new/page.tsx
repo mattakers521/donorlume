@@ -22,6 +22,16 @@ export default async function OutreachPage({
     donors?: string;
     cohort?: string;
     onboarding?: string;
+    /**
+     * `from=selection` is set by the AttendeeView "Generate Outreach"
+     * CTA after it stashes the chosen donor ids in sessionStorage.
+     * URL-based ?donors= breaks past ~14kb of cuids; sessionStorage
+     * has no such limit. The server treats this exactly like the
+     * "no selection params" path — load every org donor — and the
+     * OutreachClient narrows the initial selection to the
+     * sessionStorage subset on mount.
+     */
+    from?: string;
   }>;
 }) {
   console.log("[server-trace] OUTREACH NEW PAGE entry (before getOrgContext)");
@@ -49,7 +59,12 @@ export default async function OutreachPage({
   // having to hop back to /upload or /cohorts. Cap at MAX_DEFAULT_LOAD
   // so a 50k-donor org doesn't ship the whole table to the client.
   const MAX_DEFAULT_LOAD = 2000;
-  const noSelectionParams = donorIds.length === 0 && !params.cohort;
+  const fromSelection = params.from === "selection";
+  // Load every org donor on the no-params path AND on the
+  // sessionStorage-handoff path. The client narrows the selection on
+  // mount in the second case.
+  const noSelectionParams =
+    (donorIds.length === 0 && !params.cohort) || fromSelection;
 
   const [byIdList, byCohortList, allOrgDonors] = await Promise.all([
     donorIds.length > 0

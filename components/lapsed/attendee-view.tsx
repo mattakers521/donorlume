@@ -174,7 +174,23 @@ export function AttendeeView({
   const generateOutreach = () => {
     const ids = handoffIds();
     if (ids.length === 0) return;
-    router.push(`/outreach/new?donors=${ids.join(",")}`);
+    // 2000+ donor cuids in a query string blow past most servers'
+    // request-URI limits (Vercel caps at 14kb, nginx ~8kb). Hand off
+    // via sessionStorage instead — survives the SPA navigation, dies
+    // when the tab closes, and never hits the network as a URL.
+    // The outreach page reads it on the client and pre-selects.
+    try {
+      sessionStorage.setItem(
+        "outreach:pre-selected-donors",
+        JSON.stringify(ids),
+      );
+    } catch {
+      // Quota-full / private-mode storage error — fall back to the
+      // legacy URL path so small selections still work end-to-end.
+      router.push(`/outreach/new?donors=${ids.join(",")}`);
+      return;
+    }
+    router.push("/outreach/new?from=selection");
   };
 
   const ctaCount =

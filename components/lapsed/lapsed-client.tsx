@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import type {
   CohortDefinition,
@@ -159,6 +159,66 @@ export function LapsedClient({
       (d.totalGifts == null || d.totalGifts === 0) &&
       (d.totalGiven == null || d.totalGiven === 0),
   );
+
+  // ─── Engagement-score backfill ───────────────────────────────────
+  // Attendees uploaded before the engagement scorer existed have no
+  // `enrichmentData.engagement` and would render as em-dashes in the
+  // AttendeeView. The first time the page loads with such rows, kick
+  // off a server-side backfill (which recovers years from existing
+  // cohort assignments) and patch the returned scores into local
+  // state. Idempotent: subsequent loads find every row already has
+  // the engagement key and skip the call.
+  //
+  // Guarded by a ref so React 19 strict-mode double-mount doesn't
+  // double-fire the POST, and so the effect doesn't re-run after we
+  // patch state.
+  const backfillFiredRef = useRef(false);
+  useEffect(() => {
+    if (backfillFiredRef.current) return;
+    if (!isAttendeeList || donors.length === 0) return;
+    const anyMissingEngagement = donors.some((d) => {
+      const enrichment = d.enrichmentData as
+        | { engagement?: unknown }
+        | null;
+      return !enrichment || !enrichment.engagement;
+    });
+    if (!anyMissingEngagement) return;
+    backfillFiredRef.current = true;
+    void (async () => {
+      try {
+        const res = await fetch("/api/donors/backfill-engagement", {
+          method: "POST",
+        });
+        if (!res.ok) {
+          console.warn(
+            "[engagement-backfill] failed",
+            res.status,
+            await res.text().catch(() => ""),
+          );
+          return;
+        }
+        const body = (await res.json()) as {
+          updates?: { id: string; enrichmentData: unknown }[];
+        };
+        if (!body.updates || body.updates.length === 0) return;
+        const patchById = new Map(
+          body.updates.map((u) => [u.id, u.enrichmentData]),
+        );
+        setDonors((prev) =>
+          prev.map((d) => {
+            const patch = patchById.get(d.id);
+            if (!patch) return d;
+            return {
+              ...d,
+              enrichmentData: patch as DonorWithCohorts["enrichmentData"],
+            };
+          }),
+        );
+      } catch (e) {
+        console.warn("[engagement-backfill] threw", e);
+      }
+    })();
+  }, [isAttendeeList, donors]);
 
   return (
     <>
