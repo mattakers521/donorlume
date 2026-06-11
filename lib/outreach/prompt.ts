@@ -137,6 +137,11 @@ export function buildUserPrompt(d: DonorContext, emailType: string): string {
   const fmt$ = (n?: number | null) =>
     n == null ? "—" : `$${n.toLocaleString()}`;
   const attendee = isAttendee(d);
+  // First-touch reactivation framing applies to lapsed donors only —
+  // attendees route through the conversion block above. Best-practice
+  // win-back sequencing is thank → story → soft ask (or no ask at
+  // all) on the first touch; the hard ask comes later in the series.
+  const lapsedReactivation = !attendee && emailType === "reactivation";
 
   const lines = [
     `DONOR: ${d.name}${d.donorType ? ` (${d.donorType})` : ""}`,
@@ -183,7 +188,26 @@ export function buildUserPrompt(d: DonorContext, emailType: string): string {
           "",
           `Write the personalized first-time-donor invitation email now.`,
         ].join("\n")
-      : `Write the personalized ${TYPE_LABEL[emailType] ?? emailType} email now.`,
+      : lapsedReactivation
+        ? // First-touch lapsed-donor reactivation — gratitude-first
+          // sequence. The whole point of this email is reconnection
+          // and goodwill; the conversion ask belongs in a follow-up.
+          [
+            "FIRST-TOUCH REACTIVATION — this is the first re-engagement email after a gap in giving. DO NOT lead with a donation ask. Follow the gratitude-first sequence:",
+            "",
+            "1. THANK FIRST. Open by thanking them specifically for their past support. Reference what their giving made possible at their scale of generosity. If lifetime totals, largest gift, or segment tags suggest a particular era of involvement (gala year, capital campaign, sustained monthly giving), name it warmly.",
+            "2. STORY SECOND. Share ONE concrete impact moment they should know about — a specific person served, a milestone reached, a program launched. Tie the story back to the kind of support they once provided (\"supporters like you funded the X that made Y possible\"). No vague mission statements. No 'look how much we've grown' org updates.",
+            "3. SOFT LANDING. End with either no ask, or a single low-pressure invitation line (e.g. \"If you'd ever like to be part of this next chapter, the door is always open\" / \"We'd love to share more whenever you're ready\"). Do NOT include a suggested donation amount, a 'donate now' button mention, or any urgency framing.",
+            "",
+            "Subject line: warm and invitational. Good: \"Something we wanted you to share\", \"An update we owe you\", \"Thinking of you\", \"What your support made possible\". Bad: \"We miss you\", \"Come back\", \"Renew today\", \"We need you\".",
+            "",
+            "Do NOT use phrases that fish for guilt or call attention to the gap: 'we haven't seen you in a while', 'where have you been', 'your absence has been felt', 'it's been too long', 'won't you renew', 'your gift today'. Do NOT mention the lapsed months or 'last gift' interval directly.",
+            "",
+            "The goal is reconnection and goodwill, not conversion. A second, ask-bearing email comes later in the series.",
+            "",
+            "Write the personalized first-touch reactivation email now.",
+          ].join("\n")
+        : `Write the personalized ${TYPE_LABEL[emailType] ?? emailType} email now.`,
   ];
   return lines.filter(Boolean).join("\n");
 }
