@@ -61,6 +61,37 @@ export type ScoredDonor = RawDonorRow & {
 
 export const DEFAULT_LAPSED_THRESHOLD_MONTHS = 12;
 
+/**
+ * Recency component for the lifetime-only RFM branch (0-50). Banded
+ * rather than linear because most CRM-export "Last Donation Date"
+ * fields are sparse and the smooth penalty in the standard branch
+ * collapses to 0 by ~24 months — too aggressive when monetary is the
+ * only other signal we have.
+ */
+function lifetimeRecencyComponent(daysSinceLast: number): number {
+  if (daysSinceLast <= 90) return 50;
+  if (daysSinceLast <= 365) return 40;
+  if (daysSinceLast <= 730) return 25;
+  if (daysSinceLast <= 1095) return 15;
+  return 5;
+}
+
+/**
+ * Monetary component for the lifetime-only RFM branch (0-50). Direct
+ * banding on total giving (not avgGift, which is unavailable without
+ * gift count). Tuned so a small first-time donor still gets a non-zero
+ * monetary signal and major donors near the top of the band.
+ */
+function lifetimeMonetaryComponent(totalGiven: number): number {
+  if (totalGiven >= 25_000) return 50;
+  if (totalGiven >= 10_000) return 40;
+  if (totalGiven >= 5_000) return 30;
+  if (totalGiven >= 1_000) return 20;
+  if (totalGiven >= 250) return 10;
+  if (totalGiven > 0) return 5;
+  return 0;
+}
+
 export function scoreReactivation(
   donor: RawDonorRow,
   now: Date,
@@ -83,10 +114,36 @@ export function scoreReactivation(
   const avgGift = totalGifts > 0 ? totalGiven / totalGifts : 0;
   const hasGivingHistory = !!ld || totalGifts > 0 || totalGiven > 0;
 
-  const recency = Math.max(0, 30 - (daysSinceLast / 30) * 1.5);
-  const frequency = Math.min(25, totalGifts * 2.5);
-  const monetary = Math.min(25, (avgGift / 200) * 2.5);
-  const tenure = Math.min(20, (tenureDays / 365) * 4);
+  // Lifetime mode handles export shapes where the gift-count column
+  // is missing (Salesforce: Total Donations + Last Donation Date;
+  // Givebutter: per-donation rows with Amount + Date; manual sheets
+  // with just "amount given"). Standard RFM+ degenerates badly here —
+  // frequency and avgGift-derived monetary both collapse to 0 — which
+  // made entire uploads tier as Cold with scores 0-2.
+  //
+  // The branch reweights to recency (0-50) + lifetime-monetary (0-50)
+  // using totalGiven directly. Either component is 0 when its signal
+  // is missing, so a monetary-only row (no lastGiftDate) still scores
+  // 5-50 based on size, and a recency-only row (no totalGiven) still
+  // scores 5-50 based on freshness.
+  const isLifetimeMode = totalGifts === 0 && (!!ld || totalGiven > 0);
+
+  let recency: number;
+  let frequency: number;
+  let monetary: number;
+  let tenure: number;
+
+  if (isLifetimeMode) {
+    recency = ld ? lifetimeRecencyComponent(daysSinceLast) : 0;
+    frequency = 0;
+    monetary = lifetimeMonetaryComponent(totalGiven);
+    tenure = 0;
+  } else {
+    recency = Math.max(0, 30 - (daysSinceLast / 30) * 1.5);
+    frequency = Math.min(25, totalGifts * 2.5);
+    monetary = Math.min(25, (avgGift / 200) * 2.5);
+    tenure = Math.min(20, (tenureDays / 365) * 4);
+  }
 
   const score = hasGivingHistory
     ? Math.round(

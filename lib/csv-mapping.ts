@@ -88,13 +88,31 @@ export function detectColumns(headers: string[]): ColumnMap {
     address: find("address", "street", "mailing"),
     firstGift: find("firstgift", "firstdonat"),
     lastGift: find("lastgift", "lastdonat", "recentgift", "recentdate"),
-    totalGifts: find("totalgift", "numgift", "giftcount", "frequency"),
+    // totalGiven detection runs BEFORE totalGifts so "Total Donations"
+    // gets bound to totalGiven via the specific "totaldonat" needle
+    // before the broader "donations" needle on totalGifts can claim
+    // it. The taken-Set above guarantees a header isn't double-bound.
+    // "amount" lives at the very end of the totalGiven needle list
+    // so it only catches columns like Givebutter's bare "Amount"
+    // when nothing more specific (lifetime / total / cumulative)
+    // matched — keeps the priority ordering the user requested.
     totalGiven: find(
       "totalgiven",
       "totalamount",
       "totaldonat",
       "lifetime",
       "cumulative",
+      "amount",
+    ),
+    totalGifts: find(
+      "totalgift",
+      "numgift",
+      "giftcount",
+      "donationcount",
+      "numberofdonations",
+      "ofgifts",
+      "donations",
+      "frequency",
     ),
     largestGift: find("largest", "biggest", "maxgift"),
     donorType: find("type", "category", "segment"),
