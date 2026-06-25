@@ -1,5 +1,6 @@
 import { updateOrganization } from "@/lib/settings/actions";
 import { C } from "@/lib/design";
+import { getFromEmail, isTestSendingDomain } from "@/lib/email/resend";
 import { prisma } from "@/lib/prisma";
 import { getOrgContext } from "@/lib/with-org";
 import {
@@ -26,6 +27,12 @@ export default async function OrganizationPage() {
     },
   });
 
+  // Sender preflight — surfaces whether outreach can actually leave
+  // the building, and warns when EMAIL_FROM is still pointing at
+  // Resend's test domain (matches the 412 guard in the send route).
+  const fromAddress = getFromEmail();
+  const senderIsTestDomain = isTestSendingDomain();
+
   return (
     <div style={{ padding: "8px clamp(0px, 2vw, 8px)" }}>
       <div style={{ maxWidth: 720 }}>
@@ -43,8 +50,107 @@ export default async function OrganizationPage() {
           mission and cause area, the better your generated emails read.
         </p>
 
+        <SectionCard
+          title="Sender"
+          description="The address every outreach email goes out from. Recipients see this in their inbox and use it to reply."
+        >
+          <div
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              gap: 14,
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 12,
+                padding: "14px 16px",
+                borderRadius: 12,
+                backgroundColor: senderIsTestDomain
+                  ? C.orangeLight
+                  : C.amberLight,
+              }}
+            >
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div
+                  style={{
+                    fontSize: 11,
+                    fontWeight: 800,
+                    letterSpacing: 1.2,
+                    textTransform: "uppercase",
+                    color: senderIsTestDomain ? C.orange : C.amberDark,
+                    marginBottom: 4,
+                  }}
+                >
+                  {senderIsTestDomain
+                    ? "Sending not yet configured"
+                    : "Sending from"}
+                </div>
+                <div
+                  style={{
+                    fontSize: 15,
+                    fontWeight: 700,
+                    color: C.text,
+                    wordBreak: "break-all",
+                  }}
+                >
+                  {fromAddress ?? "EMAIL_FROM is not set."}
+                </div>
+                {senderIsTestDomain && (
+                  <p
+                    style={{
+                      margin: "8px 0 0",
+                      fontSize: 13,
+                      color: C.textBody,
+                      fontWeight: 500,
+                      lineHeight: 1.55,
+                    }}
+                  >
+                    This is Resend&rsquo;s test domain — it only delivers
+                    to the Resend account owner&rsquo;s inbox, not to your
+                    donors. Send buttons in /outreach are blocked until a
+                    real sending domain is configured. Email{" "}
+                    <a
+                      href="mailto:support@donorlume.com?subject=Sending%20domain%20setup"
+                      style={{ color: C.amberDark, fontWeight: 700 }}
+                    >
+                      support@donorlume.com
+                    </a>{" "}
+                    to get set up.
+                  </p>
+                )}
+              </div>
+            </div>
+            <p
+              style={{
+                margin: 0,
+                fontSize: 13,
+                color: C.textSecondary,
+                lineHeight: 1.55,
+                fontWeight: 500,
+              }}
+            >
+              <strong style={{ color: C.text }}>
+                Custom sending domains — coming soon.
+              </strong>{" "}
+              Per-org From addresses (you@yournonprofit.org) are on the
+              roadmap. For now every workspace shares the DonorLume
+              sender above. To prioritize your domain, email{" "}
+              <a
+                href="mailto:support@donorlume.com?subject=Custom%20sending%20domain"
+                style={{ color: C.amberDark, fontWeight: 700 }}
+              >
+                support@donorlume.com
+              </a>
+              .
+            </p>
+          </div>
+        </SectionCard>
+
         <InfoCard title="Need a specific integration?">
-          Integrations and custom sending domains are on the roadmap. Email{" "}
+          Integrations and CRM connectors are on the roadmap. Email{" "}
           <a
             href="mailto:support@donorlume.com?subject=CRM%20integration%20request"
             style={{ color: C.amberDark, fontWeight: 700 }}

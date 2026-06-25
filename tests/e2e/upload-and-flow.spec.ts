@@ -28,8 +28,10 @@ async function uploadCsv(page: import("@playwright/test").Page, csvPath: string)
   await fileInput.setInputFiles(csvPath);
 
   // Preview step: skip cohort-column selection to land on the scored view.
+  // Button text updated from "Skip — upload without engagement segments"
+  // to "I'll set up segments later →" in audit fix #8.
   const skipButton = page.getByRole("button", {
-    name: /skip.*upload without engagement segments/i,
+    name: /set up segments later/i,
   });
   await skipButton.waitFor({ state: "visible", timeout: 15_000 });
   await skipButton.click();

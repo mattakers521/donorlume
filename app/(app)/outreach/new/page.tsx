@@ -1,11 +1,13 @@
 import type { CohortDefinition, Donor, DonorCohort } from "@prisma/client";
 
 import { isInUnpaidTrial } from "@/lib/billing/trial";
+import { getFromEmail } from "@/lib/email/resend";
 import type { DonorContext } from "@/lib/outreach/prompt";
 import { prisma } from "@/lib/prisma";
 import { SAMPLE_DONORS } from "@/lib/outreach/sample-donors";
 import { getOrgContext } from "@/lib/with-org";
 import { OutreachClient } from "@/components/outreach/outreach-client";
+import { OutreachColdStart } from "@/components/outreach/outreach-cold-start";
 import { TrialAiCounter } from "@/components/outreach/trial-ai-counter";
 
 export const dynamic = "force-dynamic";
@@ -32,6 +34,13 @@ export default async function OutreachPage({
      * sessionStorage subset on mount.
      */
     from?: string;
+    /**
+     * `samples=true` is appended by the "Try with sample data" link on
+     * the cold-start empty state. When present, we render the wizard
+     * with samples-only so a first-time user can preview the flow
+     * without uploading real donors.
+     */
+    samples?: string;
   }>;
 }) {
   console.log("[server-trace] OUTREACH NEW PAGE entry (before getOrgContext)");
@@ -125,6 +134,15 @@ export default async function OutreachPage({
     realDonorsMap.set(d.id, d);
   const realDonors = [...realDonorsMap.values()];
 
+  // Cold start: no real donors in the org AND the user hasn't opted
+  // into the samples preview. Render an upload-first empty state
+  // instead of silently auto-loading 8 sample donors that they could
+  // accidentally generate AI drafts against (and burn trial credits).
+  const samplesOptIn = params.samples === "true";
+  if (realDonors.length === 0 && !samplesOptIn) {
+    return <OutreachColdStart />;
+  }
+
   // Fetch org settings + all cohort defs for the filter bar.
   const [settings, allCohorts] = await Promise.all([
     prisma.orgSettings.findUnique({ where: { orgId: org.id } }),
@@ -193,9 +211,62 @@ export default async function OutreachPage({
       })
     : 0;
 
+  // Sample-mode banner — only renders on the explicit ?samples=true
+  // opt-in path. We don't show it when the user has real donors plus
+  // the sample fallback, because in that case samples are background
+  // noise, not the foreground story.
+  const showSampleBanner = realDonors.length === 0 && samplesOptIn;
+
   return (
     <>
       {inUnpaidTrial && <TrialAiCounter used={trialDraftsUsed} />}
+      {showSampleBanner && (
+        <div
+          role="status"
+          style={{
+            margin: "0 auto 18px",
+            maxWidth: 1100,
+            backgroundColor: "#FFF7EA",
+            border: "1px solid rgba(232,134,12,0.30)",
+            borderRadius: 16,
+            padding: "14px 20px",
+            display: "flex",
+            alignItems: "center",
+            gap: 14,
+            flexWrap: "wrap",
+          }}
+        >
+          <div
+            style={{
+              fontSize: 13.5,
+              color: "#7A4A0A",
+              fontWeight: 600,
+              flex: 1,
+              minWidth: 220,
+              lineHeight: 1.55,
+            }}
+          >
+            <strong style={{ color: "#5C3705" }}>Sample-data preview.</strong>{" "}
+            These contacts aren&rsquo;t real. Generated drafts won&rsquo;t go
+            to anyone — upload your own donors to start sending.
+          </div>
+          <a
+            href="/lapsed"
+            style={{
+              fontSize: 13,
+              fontWeight: 800,
+              color: "#C26A00",
+              textDecoration: "none",
+              padding: "8px 14px",
+              borderRadius: 10,
+              backgroundColor: "rgba(232,134,12,0.12)",
+              whiteSpace: "nowrap",
+            }}
+          >
+            Upload donors →
+          </a>
+        </div>
+      )}
       <OutreachClient
         defaults={{
           orgName: org.name,
@@ -212,6 +283,7 @@ export default async function OutreachPage({
         initialCohortFilterId={initialCohortFilterId}
         onboardingActive={onboardingActive}
         currentUserId={userId}
+        fromAddress={getFromEmail()}
       />
     </>
   );

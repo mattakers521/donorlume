@@ -40,10 +40,19 @@ export async function generateDraft(
   donor: DonorContext,
 ): Promise<{ subject: string; body: string; usage: Anthropic.Usage }> {
   // Playwright E2E shim — return a deterministic canned draft instead
-  // of hitting Anthropic when the test env opts in. Never set this in
-  // production. The output is shaped exactly like a real generation
-  // so downstream parsing + persistence paths run identically.
+  // of hitting Anthropic when the test env opts in. The flag is
+  // refused in production (NODE_ENV === "production") so it can't
+  // accidentally short-circuit a real customer send if someone leaks
+  // the env var into a prod deploy — fail loud with a thrown error
+  // instead of silently serving canned text. The output is shaped
+  // exactly like a real generation so downstream parsing +
+  // persistence paths run identically.
   if (process.env.PLAYWRIGHT_TEST_MODE === "true") {
+    if (process.env.NODE_ENV === "production") {
+      throw new Error(
+        "PLAYWRIGHT_TEST_MODE cannot be enabled in production. Remove it from the deployment environment before retrying.",
+      );
+    }
     return {
       subject: `Test subject for ${donor.name}`,
       body: `Hi ${donor.name},\n\nThis is a deterministic test draft generated for the Playwright E2E suite. It exists so the outreach test can verify the full persistence pipeline without burning real Anthropic credits.\n\nWarmly,\n${campaign.senderName ?? "DonorLume"}`,

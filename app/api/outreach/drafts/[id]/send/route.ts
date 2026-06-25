@@ -6,6 +6,7 @@ import {
   getDailyStatus,
   getHourlyStatus,
 } from "@/lib/email/limits";
+import { isTestSendingDomain } from "@/lib/email/resend";
 import { sendOutreachEmail } from "@/lib/email/send";
 import { prisma } from "@/lib/prisma";
 import { withOrg } from "@/lib/with-org";
@@ -53,6 +54,25 @@ export const POST = withOrg<{ id: string }>(
       return NextResponse.json(
         { error: "This draft previously bounced. Edit the recipient and retry." },
         { status: 409 },
+      );
+    }
+
+    // ─── Sending-domain preflight ────────────────────────────────────
+    // Refuse the send when EMAIL_FROM is still pointing at Resend's
+    // free test domain (`onboarding@resend.dev` and friends). Those
+    // addresses only deliver to the Resend account owner — silently
+    // accepting the send would let a customer click "Send" and watch
+    // their first email never reach the donor. 412 is the "fix your
+    // setup, then retry" status; the UI maps it to an inline
+    // "Verify a sending domain in Settings → Organization" banner.
+    if (isTestSendingDomain()) {
+      return NextResponse.json(
+        {
+          error:
+            "Your sending address is still Resend's test domain. Verify a real sending domain before sending to donors — emails from resend.dev only deliver to your own inbox.",
+          code: "unverified-sender",
+        },
+        { status: 412 },
       );
     }
 

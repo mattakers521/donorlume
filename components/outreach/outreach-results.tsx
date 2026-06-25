@@ -143,6 +143,13 @@ export type DedupPrompt = {
 type Props = {
   drafts: DraftView[];
   orgName: string;
+  /**
+   * Bare sender address from EMAIL_FROM (e.g. "hello@donorlume.com").
+   * Drives the From: line in the first-send confirmation drawer. Null
+   * when EMAIL_FROM is unset — drawer hides the From row in that case
+   * (the send route's preflight will 412 anyway).
+   */
+  fromAddress: string | null;
   onRegenerate: (index: number) => void;
   onUpdateDraft: (
     index: number,
@@ -182,6 +189,7 @@ type Props = {
 export function OutreachResults({
   drafts,
   orgName,
+  fromAddress,
   onRegenerate,
   onUpdateDraft,
   onSendDraft,
@@ -200,6 +208,17 @@ export function OutreachResults({
   const [expanded, setExpanded] = useState<number | null>(0);
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
+  // First-send confirmation drawer. Renders ONLY during onboarding
+  // and only for the very first card-level Send click — once the user
+  // hits Send on one draft, every subsequent click is one-tap. The
+  // drawer is the audit's "thicker airlock between drafting and the
+  // first real-customer send" — it shows the rendered HTML, From, To,
+  // and an Edit/Send pair so the user actually sees what's about to
+  // leave the building.
+  const [pendingConfirmIndex, setPendingConfirmIndex] = useState<number | null>(
+    null,
+  );
+  const [hasConfirmedFirstSend, setHasConfirmedFirstSend] = useState(false);
   // Guards the one-time auto-scroll. We want it ONCE on entry to the
   // results view, not every time `drafts` mutates (regenerate, status
   // polling, etc.) — otherwise polling every 30s would yank the user
@@ -266,8 +285,112 @@ export function OutreachResults({
     setTimeout(() => setCopiedIndex(null), 2000);
   };
 
+  /**
+   * Card-level Send click. During onboarding we route the very first
+   * click through the confirmation drawer; everything after — and
+   * everything outside onboarding — is one-tap. `hasConfirmedFirstSend`
+   * also flips the moment the user closes the drawer with Send, so the
+   * second card in the same campaign is direct.
+   */
+  const handleSendClick = (draftId: string, index: number) => {
+    if (onboardingActive && !hasConfirmedFirstSend) {
+      setPendingConfirmIndex(index);
+      return;
+    }
+    onSendDraft(draftId, index);
+  };
+
+  const confirmAndSend = () => {
+    if (pendingConfirmIndex == null) return;
+    const idx = pendingConfirmIndex;
+    const draft = drafts[idx];
+    if (!draft) return;
+    setHasConfirmedFirstSend(true);
+    setPendingConfirmIndex(null);
+    onSendDraft(draft.id, idx);
+  };
+
+  const cancelConfirmDrawer = () => setPendingConfirmIndex(null);
+
+  const pendingDraft =
+    pendingConfirmIndex != null ? drafts[pendingConfirmIndex] : null;
+
   return (
     <div style={{ maxWidth: 960 }}>
+      {/* Milestone banner — celebrates the post-generation handoff so
+          the user sees the moment they crossed from "waiting on AI" to
+          "ready to review." The previous results screen landed straight
+          on a table with no emotional beat between progress bar and
+          send buttons. Renders only while there's at least one ready
+          draft that hasn't shipped yet — once everything is sent the
+          banner disappears so it stops announcing a completed milestone. */}
+      {sendableCount > 0 && (
+        <div
+          style={{
+            marginBottom: 22,
+            padding: 2,
+            borderRadius: 18,
+            background: brandGradient,
+            boxShadow:
+              "0 14px 36px rgba(232,134,12,0.22), 0 4px 12px rgba(212,74,26,0.12)",
+          }}
+        >
+          <div
+            style={{
+              backgroundColor: C.surface,
+              borderRadius: 16,
+              padding: "18px clamp(20px, 3vw, 26px)",
+              display: "flex",
+              alignItems: "center",
+              gap: 14,
+            }}
+          >
+            <div
+              aria-hidden
+              style={{
+                width: 44,
+                height: 44,
+                borderRadius: 12,
+                background: brandGradient,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                flexShrink: 0,
+                boxShadow: "0 6px 16px rgba(232,134,12,0.30)",
+              }}
+            >
+              <Sparkles size={20} color="#fff" strokeWidth={2.4} />
+            </div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div
+                style={{
+                  fontFamily:
+                    "var(--font-instrument-serif), Georgia, serif",
+                  fontSize: 22,
+                  fontWeight: 400,
+                  color: C.text,
+                  letterSpacing: -0.3,
+                  lineHeight: 1.15,
+                }}
+              >
+                {sendableCount} draft{sendableCount === 1 ? "" : "s"} ready.
+              </div>
+              <div
+                style={{
+                  fontSize: 13.5,
+                  color: C.textBody,
+                  fontWeight: 500,
+                  marginTop: 2,
+                  lineHeight: 1.5,
+                }}
+              >
+                Review, edit, and send when you&rsquo;re happy.
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div
         style={{
           display: "flex",
@@ -657,18 +780,40 @@ export function OutreachResults({
                         Same trade-off as Copy — leaves DonorLume so we
                         lose open/click/reply tracking. Visually outlined
                         so users see it as a fallback, not the default. */}
-                    <OutlineButton
-                      onClick={() => {
-                        const url = `mailto:${d.donorEmail ?? ""}?subject=${encodeURIComponent(
-                          d.subject,
-                        )}&body=${encodeURIComponent(d.body)}`;
-                        window.open(url);
+                    <div
+                      style={{
+                        display: "inline-flex",
+                        flexDirection: "column",
+                        alignItems: "center",
+                        gap: 4,
                       }}
-                      disabled={!d.donorEmail}
-                      title="Hand off to your local mail client (you lose open/click tracking)"
                     >
-                      <Mail size={12} /> Open in Mail
-                    </OutlineButton>
+                      <OutlineButton
+                        onClick={() => {
+                          const url = `mailto:${d.donorEmail ?? ""}?subject=${encodeURIComponent(
+                            d.subject,
+                          )}&body=${encodeURIComponent(d.body)}`;
+                          window.open(url);
+                        }}
+                        disabled={!d.donorEmail}
+                        title="Hand off to your local mail client (you lose open/click tracking)"
+                      >
+                        <Mail size={12} /> Open in Mail
+                      </OutlineButton>
+                      <span
+                        style={{
+                          fontSize: 10.5,
+                          color: C.textTertiary,
+                          fontWeight: 600,
+                          letterSpacing: 0.1,
+                          textAlign: "center",
+                          maxWidth: 130,
+                          lineHeight: 1.3,
+                        }}
+                      >
+                        opens in Gmail / Outlook · no tracking
+                      </span>
+                    </div>
 
                     {/* Primary: send directly from DonorLume via Resend.
                         Wrapped in a relative column so the onboarding
@@ -690,7 +835,7 @@ export function OutreachResults({
                         d.donorEmail && <SendCallout />}
                       <button
                         type="button"
-                        onClick={() => onSendDraft(d.id, i)}
+                        onClick={() => handleSendClick(d.id, i)}
                         disabled={
                           !d.donorEmail ||
                           isSent(d) ||
@@ -748,7 +893,22 @@ export function OutreachResults({
                         )}
                       </button>
                       {!isSent(d) && d.donorEmail && (
-                        <TrackingPills />
+                        <>
+                          <span
+                            style={{
+                              fontSize: 10.5,
+                              color: C.textTertiary,
+                              fontWeight: 600,
+                              letterSpacing: 0.1,
+                              textAlign: "right",
+                              maxWidth: 200,
+                              lineHeight: 1.3,
+                            }}
+                          >
+                            tracked opens, clicks &amp; replies
+                          </span>
+                          <TrackingPills />
+                        </>
                       )}
                     </div>
                   </div>
@@ -784,6 +944,15 @@ export function OutreachResults({
           onConfirm={onConfirmDedup}
           onSkip={onSkipDedup}
           onCancel={onCancelDedup}
+        />
+      )}
+
+      {pendingDraft && (
+        <FirstSendDrawer
+          draft={pendingDraft}
+          fromAddress={fromAddress}
+          onCancel={cancelConfirmDrawer}
+          onConfirm={confirmAndSend}
         />
       )}
     </div>
@@ -1724,4 +1893,344 @@ function DedupModal({
       </div>
     </div>
   );
+}
+
+// ─── First-send confirmation drawer ─────────────────────────────────────
+
+/**
+ * Modal drawer that opens on the user's very first card-level Send
+ * click during onboarding (issue #6 in the journey audit). The
+ * recipient sees a styled HTML email — the user has only been
+ * looking at the plain-text body in the card preview — so before
+ * the first send, we show them what's actually about to leave:
+ *
+ *   • Rendered HTML matching the visible portion of `prepare.ts`
+ *     (paragraph wrapping, line-break preservation, recipient-side
+ *     font + color). Tracking pixel + URL rewrites are omitted
+ *     because they're invisible to the recipient anyway.
+ *   • The configured From: address and the donor's To: address
+ *     side by side so the user can verify both before committing.
+ *   • Edit (closes the drawer, sets no state) and Send (fires the
+ *     send and stops the drawer from opening again this session).
+ *
+ * Once dismissed via Send, the parent's `hasConfirmedFirstSend` flag
+ * stays true for the rest of the session — every subsequent click
+ * goes straight to the network.
+ */
+function FirstSendDrawer({
+  draft,
+  fromAddress,
+  onCancel,
+  onConfirm,
+}: {
+  draft: DraftView;
+  fromAddress: string | null;
+  onCancel: () => void;
+  onConfirm: () => void;
+}) {
+  const renderedHtml = renderPreviewHtml(draft.body);
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label="Review before sending — first send"
+      style={{
+        position: "fixed",
+        inset: 0,
+        zIndex: 90,
+        backgroundColor: "rgba(15,15,15,0.55)",
+        display: "flex",
+        alignItems: "flex-end",
+        justifyContent: "center",
+        padding: 16,
+      }}
+      onClick={onCancel}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          width: "100%",
+          maxWidth: 720,
+          maxHeight: "94vh",
+          backgroundColor: C.surface,
+          borderRadius: 24,
+          boxShadow:
+            "0 32px 80px rgba(0,0,0,0.30), 0 8px 24px rgba(0,0,0,0.18)",
+          overflow: "hidden",
+          display: "flex",
+          flexDirection: "column",
+          fontFamily: "var(--font-jakarta), -apple-system, sans-serif",
+        }}
+      >
+        {/* Header */}
+        <div
+          style={{
+            padding: "20px 24px 14px",
+            borderBottom: `1px solid ${C.borderSubtle}`,
+            display: "flex",
+            alignItems: "flex-start",
+            justifyContent: "space-between",
+            gap: 12,
+          }}
+        >
+          <div style={{ minWidth: 0, flex: 1 }}>
+            <div
+              style={{
+                fontSize: 11,
+                fontWeight: 800,
+                letterSpacing: 1.4,
+                textTransform: "uppercase",
+                color: C.amberDark,
+                marginBottom: 6,
+              }}
+            >
+              First send — review
+            </div>
+            <div
+              style={{
+                fontFamily:
+                  "var(--font-instrument-serif), Georgia, serif",
+                fontSize: 24,
+                fontWeight: 400,
+                color: C.text,
+                letterSpacing: -0.4,
+                lineHeight: 1.1,
+              }}
+            >
+              This is the email {draft.donorName.split(" ")[0] || "your donor"}{" "}
+              will receive.
+            </div>
+            <p
+              style={{
+                margin: "6px 0 0",
+                fontSize: 13,
+                color: C.textSecondary,
+                fontWeight: 500,
+                lineHeight: 1.5,
+              }}
+            >
+              Future sends are one click — this preview only runs on the very
+              first send so you can verify the rendered email.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={onCancel}
+            aria-label="Close"
+            style={{
+              background: "none",
+              border: "none",
+              color: C.textTertiary,
+              cursor: "pointer",
+              padding: 6,
+              borderRadius: 8,
+            }}
+          >
+            <X size={18} />
+          </button>
+        </div>
+
+        {/* From / To */}
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "1fr 1fr",
+            gap: 12,
+            padding: "16px 24px",
+            backgroundColor: C.bg,
+            borderBottom: `1px solid ${C.borderSubtle}`,
+            fontSize: 13,
+          }}
+        >
+          <div>
+            <div
+              style={{
+                fontSize: 10,
+                fontWeight: 800,
+                letterSpacing: 1.3,
+                textTransform: "uppercase",
+                color: C.textTertiary,
+                marginBottom: 4,
+              }}
+            >
+              From
+            </div>
+            <div
+              style={{
+                color: C.text,
+                fontWeight: 700,
+                wordBreak: "break-all",
+              }}
+            >
+              {fromAddress ?? "Sending address not configured"}
+            </div>
+          </div>
+          <div>
+            <div
+              style={{
+                fontSize: 10,
+                fontWeight: 800,
+                letterSpacing: 1.3,
+                textTransform: "uppercase",
+                color: C.textTertiary,
+                marginBottom: 4,
+              }}
+            >
+              To
+            </div>
+            <div
+              style={{
+                color: C.text,
+                fontWeight: 700,
+                wordBreak: "break-all",
+              }}
+            >
+              {draft.donorEmail ?? "—"}
+            </div>
+          </div>
+          <div style={{ gridColumn: "1 / -1" }}>
+            <div
+              style={{
+                fontSize: 10,
+                fontWeight: 800,
+                letterSpacing: 1.3,
+                textTransform: "uppercase",
+                color: C.textTertiary,
+                marginBottom: 4,
+              }}
+            >
+              Subject
+            </div>
+            <div style={{ color: C.text, fontWeight: 700 }}>
+              {draft.subject}
+            </div>
+          </div>
+        </div>
+
+        {/* Rendered preview */}
+        <div
+          style={{
+            flex: 1,
+            overflowY: "auto",
+            padding: "20px 24px",
+            backgroundColor: "#FAFAF8",
+          }}
+        >
+          <div
+            style={{
+              backgroundColor: C.surface,
+              borderRadius: 14,
+              padding: 24,
+              boxShadow: shadow.sm,
+              fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+              fontSize: 15,
+              color: "#1D1D1F",
+              lineHeight: 1.6,
+            }}
+            // Server-side prepare.ts uses the same paragraph-wrapping logic;
+            // both inputs are constrained to a single trusted draft body
+            // that flows through Anthropic + our parseDraft regex.
+            // dangerouslySetInnerHTML here renders Claude-generated text
+            // verbatim, which we escape inside renderPreviewHtml.
+            dangerouslySetInnerHTML={{ __html: renderedHtml }}
+          />
+        </div>
+
+        {/* Footer actions */}
+        <div
+          style={{
+            padding: "14px 24px",
+            borderTop: `1px solid ${C.borderSubtle}`,
+            display: "flex",
+            justifyContent: "flex-end",
+            gap: 10,
+            flexWrap: "wrap",
+          }}
+        >
+          <button
+            type="button"
+            onClick={onCancel}
+            style={{
+              padding: "12px 22px",
+              borderRadius: 12,
+              border: "none",
+              backgroundColor: "#F2F2F7",
+              color: C.textSecondary,
+              fontSize: 14,
+              fontWeight: 700,
+              cursor: "pointer",
+              fontFamily:
+                "var(--font-jakarta), -apple-system, sans-serif",
+            }}
+          >
+            Edit instead
+          </button>
+          <button
+            type="button"
+            onClick={onConfirm}
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 8,
+              padding: "12px 26px",
+              borderRadius: 12,
+              border: "none",
+              background: brandGradient,
+              color: "#fff",
+              fontSize: 14,
+              fontWeight: 800,
+              cursor: "pointer",
+              boxShadow: "0 10px 24px rgba(232,134,12,0.30)",
+              fontFamily:
+                "var(--font-jakarta), -apple-system, sans-serif",
+            }}
+          >
+            <Send size={15} /> Send to {draft.donorName.split(" ")[0] || "donor"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Renders the donor-side preview HTML for the first-send drawer. The
+ * server's `prepare.ts` does the same paragraph wrapping plus tracking
+ * pixel + URL rewrites; the tracking layer is invisible to the
+ * recipient, so the preview skips it and renders only the visible
+ * portion (paragraphs, escaped HTML entities, line breaks, link
+ * styling). Keep this function in sync with `prepare.ts` if/when the
+ * visible rendering changes.
+ */
+function renderPreviewHtml(body: string): string {
+  const HTML_ENTITIES: Record<string, string> = {
+    "&": "&amp;",
+    "<": "&lt;",
+    ">": "&gt;",
+    '"': "&quot;",
+    "'": "&#39;",
+  };
+  const escape = (s: string) =>
+    s.replace(/[&<>"']/g, (c) => HTML_ENTITIES[c] ?? c);
+  const URL_RE = /https?:\/\/[^\s<"'`)]+/g;
+
+  const paragraphs = body
+    .split(/\r?\n\r?\n+/)
+    .map((p) => p.trim())
+    .filter(Boolean);
+
+  return paragraphs
+    .map((p) => {
+      const escaped = escape(p).replace(/\r?\n/g, "<br />");
+      const linked = escaped.replace(URL_RE, (rawUrl) => {
+        const trailing = rawUrl.match(/[.,;:!?)]+$/);
+        const url = trailing
+          ? rawUrl.slice(0, -trailing[0].length)
+          : rawUrl;
+        const tail = trailing ? trailing[0] : "";
+        return `<a href="${url}" style="color:#C26A00;text-decoration:underline">${escape(url)}</a>${tail}`;
+      });
+      return `<p style="margin:0 0 16px;line-height:1.6;color:#1D1D1F">${linked}</p>`;
+    })
+    .join("");
 }

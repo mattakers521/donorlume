@@ -164,7 +164,11 @@ export default async function DashboardPage() {
         </div>
 
         <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
-          <QuickActions />
+          {/* Quick Actions duplicates the onboarding checklist's primary
+              steps. Hide it while the checklist is up so the user has a
+              single canonical path; re-introduce it once the checklist
+              has cleared (all required steps done or user dismissed). */}
+          {!onboarding.showChecklist && <QuickActions />}
           <RecentOutreach campaigns={recentCampaigns} />
           <CohortSnapshot topCohorts={topCohorts} />
         </div>

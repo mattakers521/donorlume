@@ -42,7 +42,10 @@ export function OutreachSetup({ config, onChange, onContinue }: Props) {
     value: CampaignFormState[K],
   ) => onChange({ ...config, [key]: value });
 
-  const valid = !!config.orgName.trim() && !!config.mission.trim();
+  const valid =
+    !!config.orgName.trim() &&
+    !!config.mission.trim() &&
+    !!config.campaignName.trim();
 
   return (
     <div style={{ maxWidth: 700 }}>
@@ -85,7 +88,7 @@ export function OutreachSetup({ config, onChange, onContinue }: Props) {
             />
           </div>
           <div>
-            <Label>Campaign</Label>
+            <Label>Campaign *</Label>
             <input
               value={config.campaignName}
               onChange={(e) => update("campaignName", e.target.value)}

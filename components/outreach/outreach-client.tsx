@@ -100,6 +100,13 @@ type Props = {
    *  OutreachSelect, and which donors the default "hide claimed by
    *  others" filter excludes. */
   currentUserId: string;
+  /**
+   * Bare sender address from EMAIL_FROM (e.g. "hello@donorlume.com").
+   * Null when EMAIL_FROM is unset. Threaded down to OutreachResults
+   * so the first-send confirmation drawer can render the actual
+   * From: line the recipient will see.
+   */
+  fromAddress: string | null;
 };
 
 type Step = "setup" | "select" | "gen" | "results";
@@ -112,6 +119,7 @@ export function OutreachClient({
   initialCohortFilterId,
   onboardingActive = false,
   currentUserId,
+  fromAddress,
 }: Props) {
   const router = useRouter();
   const pathname = usePathname();
@@ -143,15 +151,33 @@ export function OutreachClient({
     }
   }, [pathname]);
 
-  const [config, setConfig] = useState<CampaignFormState>({
-    orgName: defaults.orgName,
-    mission: defaults.mission,
-    campaignName: "",
-    senderName: defaults.senderName,
-    senderTitle: defaults.senderTitle,
-    tone: defaults.tone,
-    emailType: defaults.emailType,
-    customInstructions: defaults.customInstructions,
+  // Seed campaign name with a sensible default so a new user doesn't
+  // leave it blank and watch every campaign render as "Reactivation"
+  // in the list. The TYPE_LABEL-derived prefix gets joined with the
+  // current month + year on mount; if the user types anything they
+  // own the value.
+  const [config, setConfig] = useState<CampaignFormState>(() => {
+    const TYPE_LABEL: Record<string, string> = {
+      reactivation: "Reactivation",
+      impact_update: "Impact Update",
+      event_invite: "Event Invite",
+      year_end: "Year-End Appeal",
+    };
+    const stamp = new Date().toLocaleDateString("en-US", {
+      month: "long",
+      year: "numeric",
+    });
+    const typeLabel = TYPE_LABEL[defaults.emailType] ?? "Outreach";
+    return {
+      orgName: defaults.orgName,
+      mission: defaults.mission,
+      campaignName: `${typeLabel} — ${stamp}`,
+      senderName: defaults.senderName,
+      senderTitle: defaults.senderTitle,
+      tone: defaults.tone,
+      emailType: defaults.emailType,
+      customInstructions: defaults.customInstructions,
+    };
   });
 
   // Manually-typed contacts (Add Contact form on the select screen).
@@ -1151,6 +1177,7 @@ export function OutreachClient({
     <OutreachResults
       drafts={drafts}
       orgName={config.orgName}
+      fromAddress={fromAddress}
       onRegenerate={regenerate}
       onUpdateDraft={updateDraft}
       onSendDraft={handleCardSend}

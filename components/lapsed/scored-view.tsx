@@ -8,6 +8,7 @@ import {
   DollarSign,
   Eye,
   Mail,
+  RefreshCw,
   Search,
   TrendingUp,
   Upload,
@@ -190,6 +191,43 @@ export function ScoredView({
     router.push(`/outreach/new?donors=${encodeURIComponent(ids)}`);
   };
 
+  /**
+   * Pinned-CTA handoff. Hands off the current selection if non-empty,
+   * otherwise every visible (cohort + tier + search filtered) lapsed
+   * donor with an email — same pattern as AttendeeView. sessionStorage
+   * handles 2000+ ids that would otherwise blow past Vercel's 14kb
+   * request URI cap; URL fallback covers private-mode storage errors.
+   */
+  const pinnedHandoff = () => {
+    const targetRows =
+      selected.size > 0
+        ? lapsed.filter((d) => selected.has(d.id))
+        : filtered;
+    const ids = targetRows
+      .filter((d) => !!d.email && d.email.trim().length > 0)
+      .map((d) => d.id);
+    if (ids.length === 0) return;
+    try {
+      sessionStorage.setItem(
+        "outreach:pre-selected-donors",
+        JSON.stringify(ids),
+      );
+    } catch {
+      router.push(`/outreach/new?donors=${ids.join(",")}`);
+      return;
+    }
+    router.push("/outreach/new?from=selection");
+  };
+
+  const pinnedCount =
+    selected.size > 0
+      ? lapsed.filter((d) => selected.has(d.id)).filter(
+          (d) => !!d.email && d.email.trim().length > 0,
+        ).length
+      : filtered.filter(
+          (d) => !!d.email && d.email.trim().length > 0,
+        ).length;
+
   return (
     <div style={{ maxWidth: 1200 }}>
       {/* Header row */}
@@ -261,6 +299,102 @@ export function ScoredView({
             </button>
           )}
         </div>
+      </div>
+
+      {/* Primary CTA — mirrors AttendeeView's pinned amber bar. Without
+          this, the only path to /outreach/new from the donor view was a
+          small header pill that didn't render until the user manually
+          selected ≥1 row. New users with a freshly-uploaded list now see
+          a single dominant action: generate outreach for everything
+          flagged lapsed (or, when they've started ticking rows, just
+          those). */}
+      <div
+        style={{
+          marginBottom: 20,
+          padding: 2,
+          borderRadius: 18,
+          background: brandGradient,
+          boxShadow:
+            "0 14px 36px rgba(232,134,12,0.22), 0 4px 12px rgba(212,74,26,0.12)",
+        }}
+      >
+        <button
+          type="button"
+          onClick={pinnedHandoff}
+          disabled={pinnedCount === 0}
+          style={{
+            width: "100%",
+            border: "none",
+            background: C.surface,
+            borderRadius: 16,
+            padding: "18px clamp(20px, 3vw, 28px)",
+            display: "flex",
+            alignItems: "center",
+            gap: 16,
+            cursor: pinnedCount === 0 ? "default" : "pointer",
+            opacity: pinnedCount === 0 ? 0.55 : 1,
+            textAlign: "left",
+            fontFamily: "var(--font-jakarta), -apple-system, sans-serif",
+          }}
+        >
+          <div
+            aria-hidden
+            style={{
+              width: 48,
+              height: 48,
+              borderRadius: 14,
+              background: brandGradient,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              flexShrink: 0,
+              boxShadow: "0 6px 16px rgba(232,134,12,0.30)",
+            }}
+          >
+            <RefreshCw size={22} color="#fff" strokeWidth={2.4} />
+          </div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div
+              style={{
+                fontSize: 17,
+                fontWeight: 800,
+                color: C.text,
+                marginBottom: 2,
+                letterSpacing: -0.2,
+              }}
+            >
+              Generate Reactivation Outreach for{" "}
+              {selected.size > 0 ? "These " : "All "}
+              {selected.size > 0 ? "Donors" : "Lapsed Donors"}
+            </div>
+            <div
+              style={{
+                fontSize: 13,
+                color: C.textSecondary,
+                fontWeight: 500,
+              }}
+            >
+              {pinnedCount === 0
+                ? "No lapsed donors with email match the current filters."
+                : `Pre-selects ${pinnedCount.toLocaleString()} ${pinnedCount === 1 ? "donor" : "donors"} in the AI Outreach studio. Claude drafts a thank-first reactivation email for each.`}
+            </div>
+          </div>
+          <span
+            aria-hidden
+            style={{
+              padding: "10px 18px",
+              borderRadius: 12,
+              background: brandGradient,
+              color: "#fff",
+              fontSize: 14,
+              fontWeight: 800,
+              flexShrink: 0,
+              whiteSpace: "nowrap",
+            }}
+          >
+            Continue →
+          </span>
+        </button>
       </div>
 
       {/* Stat cards */}

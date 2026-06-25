@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import type { CohortDefinition } from "@prisma/client";
 import {
+  Check,
   ChevronLeft,
   Plus,
   Sparkles,
@@ -141,6 +142,81 @@ export function OutreachSelect({
             `${donors.length - realCount} sample donor${
               donors.length - realCount === 1 ? "" : "s"
             } below let you preview the flow.`}
+        </div>
+      )}
+
+      {/* Selection-state banner — surfaces the implicit "everyone is
+          pre-selected" default. Without this, a new user can blow past
+          the picker and trigger a 50-donor generation (or hit the
+          25-draft trial cap mid-batch) without realizing they made the
+          choice. Banner stays state-aware on subsequent renders so the
+          user always knows what they're about to send to. */}
+      {donors.length > 0 && (
+        <div
+          role="status"
+          style={{
+            backgroundColor: C.surface,
+            borderRadius: 16,
+            boxShadow: shadow.sm,
+            padding: "14px 18px",
+            marginBottom: 16,
+            display: "flex",
+            alignItems: "center",
+            gap: 12,
+            flexWrap: "wrap",
+          }}
+        >
+          <div
+            aria-hidden
+            style={{
+              width: 28,
+              height: 28,
+              borderRadius: 8,
+              background:
+                selected.size === donors.length
+                  ? brandGradient
+                  : "rgba(110,110,115,0.12)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              flexShrink: 0,
+            }}
+          >
+            <Check
+              size={16}
+              color={selected.size === donors.length ? "#fff" : C.textSecondary}
+              strokeWidth={3}
+            />
+          </div>
+          <div
+            style={{
+              flex: 1,
+              minWidth: 200,
+              fontSize: 13.5,
+              color: C.text,
+              fontWeight: 600,
+              lineHeight: 1.5,
+            }}
+          >
+            {selected.size === donors.length ? (
+              <>
+                All <strong>{donors.length}</strong> recipients are
+                selected by default.{" "}
+                <span style={{ color: C.textSecondary, fontWeight: 500 }}>
+                  Uncheck anyone to leave them out — or click{" "}
+                  <em>Deselect all</em> to start fresh.
+                </span>
+              </>
+            ) : (
+              <>
+                <strong>{selected.size}</strong> of {donors.length}{" "}
+                recipients selected.{" "}
+                <span style={{ color: C.textSecondary, fontWeight: 500 }}>
+                  Generate will only draft emails for the checked rows.
+                </span>
+              </>
+            )}
+          </div>
         </div>
       )}
 

@@ -564,9 +564,11 @@ function PreviewPanel({
             margin: "0 0 22px",
           }}
         >
-          Each unique value becomes its own segment. Uncheck any column you
-          don&rsquo;t want as segments — they&rsquo;ll still upload as donor
-          data, just not as segments.
+          Segments let you filter outreach to specific cohorts later — e.g.
+          everyone tagged &ldquo;Spring Gala 2024&rdquo; or each donor type.
+          Each unique value in a checked column becomes a segment. Uncheck
+          any column you&rsquo;d rather not turn into a filter — the rows
+          still upload as donors, just without those segments.
         </p>
 
         <div
@@ -769,7 +771,7 @@ function PreviewPanel({
             fontFamily: "var(--font-jakarta), -apple-system, sans-serif",
           }}
         >
-          Skip — upload without engagement segments
+          I&rsquo;ll set up segments later →
         </button>
       </div>
     </div>
