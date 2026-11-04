@@ -160,6 +160,37 @@ async function generateTestDraft(
 const NO_LINK_RULE =
   "- No donation link is available. Do not include any URL, link, or link placeholder (such as [donation link]).";
 
+/** Same format as lib/outreach/prompt.ts formatPromptDate (UTC). */
+const promptDate = (d: Date) =>
+  d.toLocaleDateString("en-US", {
+    weekday: "long",
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+    timeZone: "UTC",
+  });
+
+test("the outreach prompt carries today's date and the no-claims rule", async ({
+  page,
+}) => {
+  const before = promptDate(new Date());
+  const prompt = await generateTestDraft(page, { name: "Date Check Donor" });
+  const after = promptDate(new Date());
+  // Tolerate a run that straddles UTC midnight.
+  const dateLine = prompt.system
+    .split("\n")
+    .find((l) => l.startsWith("- Today's date: "));
+  expect([`- Today's date: ${before}`, `- Today's date: ${after}`]).toContain(
+    dateLine,
+  );
+  expect(dateLine).toContain(String(new Date().getUTCFullYear()));
+  expect(prompt.system).toContain("Never guess the year.");
+  expect(prompt.system).toContain(
+    "- Never state a financial, impact, or use-of-funds claim",
+  );
+  expect(prompt.system).toContain("every dollar stays right here");
+});
+
 test("a generated draft is grounded in the profile", async ({ page }) => {
   const prompt = await generateTestDraft(page, {
     name: "Grounding Donor",

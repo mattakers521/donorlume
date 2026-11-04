@@ -31,7 +31,27 @@ export type CampaignConfig = {
   tone: string;
   emailType: string;
   customInstructions?: string | null;
+  /**
+   * "Now" for the prompt's date line. Defaults to the real current time;
+   * injectable so callers/tests can pin it. Changes at most once a day,
+   * so the system prompt stays byte-stable within a campaign run.
+   */
+  today?: Date;
 };
+
+/**
+ * Human-readable date for the prompt, e.g. "Wednesday, November 4, 2026".
+ * Pinned to UTC so the server, the Playwright suite, and Vercel all agree.
+ */
+export function formatPromptDate(d: Date): string {
+  return d.toLocaleDateString("en-US", {
+    weekday: "long",
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+    timeZone: "UTC",
+  });
+}
 
 export type DonorContext = {
   name: string;
@@ -99,12 +119,15 @@ export function buildSystemPrompt(
     ...(donationUrl ? [`- Donation page: ${donationUrl}`] : []),
     `- Current campaign: ${c.campaignName?.trim() || "General fund"}`,
     `- Sender: ${senderLine}`,
+    `- Today's date: ${formatPromptDate(c.today ?? new Date())}`,
     "",
     "Rules:",
     "- Output the literal Subject: line first, then a blank line, then the body.",
     "- Personalize using the donor's history and notes.",
     "- Ground the email in the organization context above: speak from the mission, name the community served where it fits naturally, and keep any impact story within the focus areas.",
+    "- Use today's date above for any mention of the current year, season, or upcoming dates. Never guess the year.",
     "- Never invent programs, statistics, or people that the organization context and donor notes don't support.",
+    "- Never state a financial, impact, or use-of-funds claim — what a gift amount buys, how many people were served, overhead or admin costs, or where the money goes (e.g. \"every dollar stays right here\", \"100% goes directly to veterans\") — unless that exact fact appears in the organization context or the donor's notes. When no such fact is given, describe impact in general terms drawn from the mission.",
     "- Adjust approach by donor type (Individual / Foundation / Corporate).",
     "- Keep it under 250 words.",
     "- No placeholder brackets or template tokens.",
