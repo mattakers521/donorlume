@@ -120,7 +120,11 @@ test("profile completeness updates when a field is cleared", async ({
   );
 });
 
-test("a generated draft is grounded in the profile", async ({ page }) => {
+/** Creates a campaign and one test-mode draft; returns the assembled prompt. */
+async function generateTestDraft(
+  page: Page,
+  donor: Record<string, unknown>,
+): Promise<{ subject: string; system: string; user: string }> {
   const campaignRes = await page.request.post("/api/outreach/campaigns", {
     data: {
       name: "Profile grounding check",
@@ -141,37 +145,77 @@ test("a generated draft is grounded in the profile", async ({ page }) => {
         senderName: "Playwright Tester",
         senderTitle: "QA Director",
       },
-      donor: {
-        name: "Grounding Donor",
-        totalGifts: 6,
-        totalGiven: 1200,
-        lastGiftLabel: "Mar 2024",
-        lapsedMonths: 20,
-      },
+      donor,
     },
   });
   expect(draftRes.status()).toBe(201);
   const body = await draftRes.json();
+  return {
+    subject: body.draft.subject,
+    system: body.testPrompt.system,
+    user: body.testPrompt.user,
+  };
+}
+
+const NO_LINK_RULE =
+  "- No donation link is available. Do not include any URL, link, or link placeholder (such as [donation link]).";
+
+test("a generated draft is grounded in the profile", async ({ page }) => {
+  const prompt = await generateTestDraft(page, {
+    name: "Grounding Donor",
+    totalGifts: 6,
+    totalGiven: 1200,
+    lastGiftLabel: "Mar 2024",
+    lapsedMonths: 20,
+  });
 
   // Canned test-mode draft still flows through persistence…
-  expect(body.draft.subject).toBe("Test subject for Grounding Donor");
+  expect(prompt.subject).toBe("Test subject for Grounding Donor");
   // …and the assembled prompt carries the saved profile.
-  expect(body.testPrompt.system).toContain(
-    `- Community served: ${PROFILE.community}`,
-  );
-  expect(body.testPrompt.system).toContain(
+  expect(prompt.system).toContain(`- Community served: ${PROFILE.community}`);
+  expect(prompt.system).toContain(
     `- Focus areas: ${PROFILE.focusAreas.join(", ")}`,
   );
-  expect(body.testPrompt.system).toContain(
+  expect(prompt.system).toContain(
     "- Mission: Automated test fixture org for end-to-end testing.",
+  );
+  // Saved donation page is handed over verbatim, with the only-this-URL rule.
+  expect(prompt.system).toContain(
+    `- Donation page: https://${PROFILE.donationPage}`,
+  );
+  expect(prompt.system).toContain(
+    "- If the email invites a gift, link to the donation page exactly as written above.",
+  );
+  expect(prompt.system).not.toContain(NO_LINK_RULE);
+  // Signature is spelled out exactly — no org name may be merged in.
+  expect(prompt.system).toContain(
+    '"Playwright Tester" on one line, then "QA Director" on the next. Do not add an organization name',
   );
   // Lapsed-reactivation rules are untouched: thank first, story
   // second, soft landing, no guilt vocabulary.
-  expect(body.testPrompt.user).toContain("FIRST-TOUCH REACTIVATION");
-  expect(body.testPrompt.user).toContain("1. THANK FIRST.");
-  expect(body.testPrompt.user).toContain("2. STORY SECOND.");
-  expect(body.testPrompt.user).toContain("3. SOFT LANDING.");
-  expect(body.testPrompt.user).toContain("we haven't seen you in a while");
+  expect(prompt.user).toContain("FIRST-TOUCH REACTIVATION");
+  expect(prompt.user).toContain("1. THANK FIRST.");
+  expect(prompt.user).toContain("2. STORY SECOND.");
+  expect(prompt.user).toContain("3. SOFT LANDING.");
+  expect(prompt.user).toContain("we haven't seen you in a while");
+});
+
+test("without a donation page the prompt forbids links and placeholders", async ({
+  page,
+}) => {
+  await page.goto("/settings/organization");
+  await page.getByLabel("Donation page").fill("");
+  await save(page);
+  await expect(page.getByText("Organization profile saved.")).toBeVisible();
+
+  const prompt = await generateTestDraft(page, { name: "Attendee Donor" });
+  expect(prompt.system).not.toContain("- Donation page:");
+  expect(prompt.system).toContain(NO_LINK_RULE);
+  expect(prompt.system).toContain(
+    "ask the reader to simply reply to this email to learn how to give",
+  );
+  // Attendee (no gifts) still routes through first-time conversion.
+  expect(prompt.user).toContain("FIRST-TIME CONVERSION CONTEXT");
 });
 
 // ─── Role restriction: only OWNER / ADMIN may edit ─────────────────────

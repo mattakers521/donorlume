@@ -144,19 +144,36 @@ export function normalizeUrl(
  * single `causeArea` for any org that somehow has no focus areas yet
  * (the migration backfills, so this is belt-and-braces).
  */
+export type PromptProfile = {
+  communityServed: string | null;
+  focusAreas: string[];
+  /** Already normalized to http(s) on save; null → the prompt forbids links. */
+  donationPageUrl: string | null;
+};
+
+export const EMPTY_PROMPT_PROFILE: PromptProfile = {
+  communityServed: null,
+  focusAreas: [],
+  donationPageUrl: null,
+};
+
 export function promptProfileFrom(org: {
   communityServed: string | null;
   focusAreas: string[];
+  donationPageUrl: string | null;
   causeArea?: string | null;
-}): { communityServed: string | null; focusAreas: string[] } {
+}): PromptProfile {
   const focusAreas =
     org.focusAreas.length > 0
       ? org.focusAreas
       : org.causeArea?.trim()
         ? [org.causeArea.trim()]
         : [];
+  // Defensive re-check: only ever hand the model an http(s) URL.
+  const donation = normalizeUrl(org.donationPageUrl);
   return {
     communityServed: org.communityServed?.trim() || null,
     focusAreas,
+    donationPageUrl: "value" in donation ? donation.value : null,
   };
 }

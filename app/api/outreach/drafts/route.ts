@@ -7,7 +7,7 @@ import { TRIAL_AI_EMAIL_LIMIT } from "@/lib/billing/plans";
 import { effectivePlan, isInUnpaidTrial } from "@/lib/billing/trial";
 import { checkLimit } from "@/lib/billing/usage";
 import { generateDraft } from "@/lib/outreach/anthropic";
-import { promptProfileFrom } from "@/lib/org-profile";
+import { EMPTY_PROMPT_PROFILE, promptProfileFrom } from "@/lib/org-profile";
 import type {
   CampaignConfig,
   DonorContext,
@@ -168,17 +168,23 @@ export const POST = withOrg(async (req, { auth }) => {
   // inject someone else's profile.
   const orgRow = await prisma.organization.findUnique({
     where: { id: auth.org.id },
-    select: { communityServed: true, focusAreas: true, causeArea: true },
+    select: {
+      communityServed: true,
+      focusAreas: true,
+      donationPageUrl: true,
+      causeArea: true,
+    },
   });
   const profile = orgRow
     ? promptProfileFrom(orgRow)
-    : { communityServed: null, focusAreas: [] };
+    : EMPTY_PROMPT_PROFILE;
 
   const config: CampaignConfig = {
     orgName: promptConfig.orgName,
     mission: promptConfig.mission,
     communityServed: profile.communityServed,
     focusAreas: profile.focusAreas,
+    donationPageUrl: profile.donationPageUrl,
     campaignName: campaign.campaign,
     senderName: promptConfig.senderName ?? null,
     senderTitle: promptConfig.senderTitle ?? null,

@@ -23,6 +23,8 @@ export type CampaignConfig = {
    */
   communityServed?: string | null;
   focusAreas?: string[];
+  /** Org's external giving page (http(s), normalized). Null → no links allowed. */
+  donationPageUrl?: string | null;
   campaignName?: string | null;
   senderName?: string | null;
   senderTitle?: string | null;
@@ -69,6 +71,17 @@ export function buildSystemPrompt(
   const senderLine = c.senderName
     ? `${c.senderName}${c.senderTitle ? `, ${c.senderTitle}` : ""}`
     : "Development Team";
+  // The signature is spelled out verbatim so the model can't merge in a
+  // different org name or title (seen in a real VETLIFE test draft).
+  const signatureRule = c.senderName?.trim()
+    ? `- Sign off with a short closing (e.g. "Warmly,") followed by the signature exactly as given: "${c.senderName.trim()}" on one line${c.senderTitle?.trim() ? `, then "${c.senderTitle.trim()}" on the next` : ""}. Do not add an organization name, change the title, or add anything after the signature.`
+    : `- Sign off with a short closing (e.g. "Warmly,") followed by exactly "The ${c.orgName} Team". Do not invent a person's name or title.`;
+  // Links: only the org's saved donation page, verbatim — or none at all.
+  // Without this the model writes "[donation link]" placeholders.
+  const donationUrl = c.donationPageUrl?.trim() || null;
+  const linkRule = donationUrl
+    ? "- If the email invites a gift, link to the donation page exactly as written above. Never include any other URL, and never alter that one."
+    : "- No donation link is available. Do not include any URL, link, or link placeholder (such as [donation link]). If the email invites a gift, ask the reader to simply reply to this email to learn how to give.";
   const tone = TONE_LABEL[c.tone] ?? c.tone;
   const type = TYPE_LABEL[c.emailType] ?? c.emailType;
 
@@ -83,6 +96,7 @@ export function buildSystemPrompt(
     ...(c.focusAreas && c.focusAreas.length > 0
       ? [`- Focus areas: ${c.focusAreas.join(", ")}`]
       : []),
+    ...(donationUrl ? [`- Donation page: ${donationUrl}`] : []),
     `- Current campaign: ${c.campaignName?.trim() || "General fund"}`,
     `- Sender: ${senderLine}`,
     "",
@@ -94,7 +108,8 @@ export function buildSystemPrompt(
     "- Adjust approach by donor type (Individual / Foundation / Corporate).",
     "- Keep it under 250 words.",
     "- No placeholder brackets or template tokens.",
-    "- End with the sender's signature.",
+    linkRule,
+    signatureRule,
     `- Tone: ${tone}`,
     `- Type: ${type}`,
     "",

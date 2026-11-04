@@ -2,7 +2,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { NextResponse } from "next/server";
 
 import { generateDraft } from "@/lib/outreach/anthropic";
-import { promptProfileFrom } from "@/lib/org-profile";
+import { EMPTY_PROMPT_PROFILE, promptProfileFrom } from "@/lib/org-profile";
 import type {
   CampaignConfig,
   DonorContext,
@@ -58,17 +58,23 @@ export const POST = withOrg<{ id: string }>(
     // regenerated after a profile edit picks up the new grounding.
     const orgRow = await prisma.organization.findUnique({
       where: { id: auth.org.id },
-      select: { communityServed: true, focusAreas: true, causeArea: true },
+      select: {
+      communityServed: true,
+      focusAreas: true,
+      donationPageUrl: true,
+      causeArea: true,
+    },
     });
     const profile = orgRow
       ? promptProfileFrom(orgRow)
-      : { communityServed: null, focusAreas: [] };
+      : EMPTY_PROMPT_PROFILE;
 
     const config: CampaignConfig = {
       orgName: meta.promptConfig.orgName,
       mission: meta.promptConfig.mission,
       communityServed: profile.communityServed,
       focusAreas: profile.focusAreas,
+    donationPageUrl: profile.donationPageUrl,
       campaignName: draft.campaign.campaign,
       senderName: meta.promptConfig.senderName ?? null,
       senderTitle: meta.promptConfig.senderTitle ?? null,
