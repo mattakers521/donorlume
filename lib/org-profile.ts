@@ -12,6 +12,16 @@
  *   communityServed / focusAreas / donationPageUrl → new columns
  */
 
+/** Only OWNER and ADMIN may edit the Organization Profile. */
+export const PROFILE_EDITOR_ROLES = ["OWNER", "ADMIN"] as const;
+
+export function canEditOrgProfile(role: string | null | undefined): boolean {
+  return (PROFILE_EDITOR_ROLES as readonly string[]).includes(role ?? "");
+}
+
+export const PROFILE_READ_ONLY_ERROR =
+  "Only owners and admins can edit the organization profile.";
+
 export type OrgProfile = {
   mission: string | null;
   communityServed: string | null;

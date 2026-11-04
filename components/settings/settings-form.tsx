@@ -25,6 +25,12 @@ type Props = {
   successMessage?: string;
   children: ReactNode;
   submitLabel?: string;
+  /**
+   * Render every field disabled (via a disabled <fieldset>) and hide
+   * the submit button. Purely presentational — the Server Action must
+   * still enforce permissions on its own.
+   */
+  readOnly?: boolean;
 };
 
 /**
@@ -37,6 +43,7 @@ export function SettingsForm({
   children,
   successMessage = "Saved.",
   submitLabel = "Save changes",
+  readOnly = false,
 }: Props) {
   const [state, setState] = useState<FormState>({ kind: "idle" });
   const [pending, startTransition] = useTransition();
@@ -71,7 +78,12 @@ export function SettingsForm({
       onSubmit={onSubmit}
       style={{ display: "flex", flexDirection: "column", gap: 18 }}
     >
-      {children}
+      <fieldset
+        disabled={readOnly}
+        style={{ border: 0, margin: 0, padding: 0, minWidth: 0 }}
+      >
+        {children}
+      </fieldset>
 
       {state.kind === "ok" && (
         <div
@@ -110,7 +122,12 @@ export function SettingsForm({
         </div>
       )}
 
-      <div style={{ display: "flex", justifyContent: "flex-end" }}>
+      <div
+        style={{
+          display: readOnly ? "none" : "flex",
+          justifyContent: "flex-end",
+        }}
+      >
         <button
           type="submit"
           disabled={pending}

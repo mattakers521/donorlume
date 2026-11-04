@@ -5,7 +5,12 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import { auth } from "@/auth";
-import { normalizeFocusAreas, normalizeUrl } from "@/lib/org-profile";
+import {
+  canEditOrgProfile,
+  normalizeFocusAreas,
+  normalizeUrl,
+  PROFILE_READ_ONLY_ERROR,
+} from "@/lib/org-profile";
 import { prisma } from "@/lib/prisma";
 
 type Ok = { ok: true; message?: string };
@@ -63,6 +68,11 @@ const URL_FIELD_LABEL = {
 export async function updateOrganization(formData: FormData): Promise<Result> {
   const ctx = await requireOrgUser();
   if (!ctx) return { ok: false, error: "Sign in required." };
+  // Server-side role gate — the read-only UI is a courtesy, this is
+  // the enforcement. MEMBER / VIEWER can read the profile, not write it.
+  if (!canEditOrgProfile(ctx.role)) {
+    return { ok: false, error: PROFILE_READ_ONLY_ERROR };
+  }
 
   const parsed = orgSchema.safeParse({
     name: formData.get("name"),

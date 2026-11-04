@@ -1,6 +1,10 @@
 import { updateOrganization } from "@/lib/settings/actions";
 import { C } from "@/lib/design";
-import { isProfileGrounded, profileStrength } from "@/lib/org-profile";
+import {
+  canEditOrgProfile,
+  isProfileGrounded,
+  profileStrength,
+} from "@/lib/org-profile";
 import { getFromEmail, isTestSendingDomain } from "@/lib/email/resend";
 import { prisma } from "@/lib/prisma";
 import { getOrgContext } from "@/lib/with-org";
@@ -17,7 +21,8 @@ import { ProfileStrengthCard } from "@/components/settings/profile-strength";
 export const dynamic = "force-dynamic";
 
 export default async function OrganizationPage() {
-  const { org } = await getOrgContext();
+  const { org, orgRole } = await getOrgContext();
+  const canEdit = canEditOrgProfile(orgRole);
   const fresh = await prisma.organization.findUnique({
     where: { id: org.id },
     select: {
@@ -67,10 +72,18 @@ export default async function OrganizationPage() {
 
         <ProfileStrengthCard strength={strength} grounded={grounded} />
 
+        {!canEdit && (
+          <InfoCard title="View only">
+            Only owners and admins can edit your organization profile. If
+            something here needs updating, ask one of them.
+          </InfoCard>
+        )}
+
         <SettingsForm
           action={updateOrganization}
           successMessage="Organization profile saved."
           submitLabel="Save profile"
+          readOnly={!canEdit}
         >
           <SectionCard
             title="Your why"
@@ -232,43 +245,8 @@ export default async function OrganizationPage() {
                 )}
               </div>
             </div>
-            <p
-              style={{
-                margin: 0,
-                fontSize: 13,
-                color: C.textSecondary,
-                lineHeight: 1.55,
-                fontWeight: 500,
-              }}
-            >
-              <strong style={{ color: C.text }}>
-                Custom sending domains — coming soon.
-              </strong>{" "}
-              Per-org From addresses (you@yournonprofit.org) are on the
-              roadmap. For now every workspace shares the DonorLume
-              sender above. To prioritize your domain, email{" "}
-              <a
-                href="mailto:support@donorlume.com?subject=Custom%20sending%20domain"
-                style={{ color: C.amberDark, fontWeight: 700 }}
-              >
-                support@donorlume.com
-              </a>
-              .
-            </p>
           </div>
         </SectionCard>
-
-        <InfoCard title="Need a specific integration?">
-          Integrations and CRM connectors are on the roadmap. Email{" "}
-          <a
-            href="mailto:support@donorlume.com?subject=CRM%20integration%20request"
-            style={{ color: C.amberDark, fontWeight: 700 }}
-          >
-            support@donorlume.com
-          </a>{" "}
-          to request a specific connector.
-        </InfoCard>
-
       </div>
     </div>
   );

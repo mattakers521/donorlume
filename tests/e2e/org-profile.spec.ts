@@ -1,4 +1,7 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type Browser, type Page } from "@playwright/test";
+import bcrypt from "bcryptjs";
+import fs from "node:fs";
+import path from "node:path";
 
 // Phase 1 · Feature 1 — Organization Profile ("Your Why").
 // Shares the global-setup user. That user signs up with a name +
@@ -29,6 +32,9 @@ test("fresh org shows a partial profile and an open checklist step", async ({
     page.getByRole("heading", { name: "Your why" }),
   ).toBeVisible();
   await expect(strengthPercent(page)).toHaveText("17%");
+  // The signup user is the org OWNER — full edit access.
+  await expect(page.getByText("View only")).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Save profile" })).toBeVisible();
 
   await page.goto("/dashboard");
   const step = page.getByTestId("onboarding-step-profile");
@@ -167,3 +173,102 @@ test("a generated draft is grounded in the profile", async ({ page }) => {
   expect(body.testPrompt.user).toContain("3. SOFT LANDING.");
   expect(body.testPrompt.user).toContain("we haven't seen you in a while");
 });
+
+// ─── Role restriction: only OWNER / ADMIN may edit ─────────────────────
+
+const META_FILE = path.join(__dirname, ".auth", "meta.json");
+const TEAM_PASSWORD = "PlaywrightTeam123!";
+
+/**
+ * Adds a MEMBER or VIEWER to the shared test org directly in the DB.
+ * (The invite flow would leave the invitee with a second, self-created
+ * org, which makes "which org loads" ambiguous for this assertion.)
+ * Emails use the playwright- prefix so global teardown reaps them.
+ */
+async function addTeammate(role: "MEMBER" | "VIEWER"): Promise<string> {
+  const meta = JSON.parse(fs.readFileSync(META_FILE, "utf8")) as {
+    runId: string;
+    email: string;
+  };
+  const { PrismaClient } = await import("@prisma/client");
+  const prisma = new PrismaClient();
+  try {
+    const owner = await prisma.user.findUniqueOrThrow({
+      where: { email: meta.email },
+      include: { orgs: true },
+    });
+    const orgId = owner.orgs[0]!.orgId;
+    const email = `playwright-${meta.runId}-${role.toLowerCase()}@vibrantcauses.test`;
+    await prisma.user.upsert({
+      where: { email },
+      update: {},
+      create: {
+        email,
+        name: `Playwright ${role}`,
+        passwordHash: await bcrypt.hash(TEAM_PASSWORD, 4),
+        termsAcceptedAt: new Date(),
+        orgs: { create: { orgId, role } },
+      },
+    });
+    return email;
+  } finally {
+    await prisma.$disconnect();
+  }
+}
+
+async function signInAs(browser: Browser, email: string): Promise<Page> {
+  const ctx = await browser.newContext();
+  const page = await ctx.newPage();
+  await page.goto("/login");
+  await page.getByPlaceholder("you@yourorg.com").fill(email);
+  await page.getByPlaceholder("••••••••").fill(TEAM_PASSWORD);
+  await page.getByRole("button", { name: /sign in/i }).click();
+  await page.waitForURL(/\/dashboard$/, { timeout: 30_000 });
+  return page;
+}
+
+for (const role of ["VIEWER", "MEMBER"] as const) {
+  test(`${role.toLowerCase()} sees the profile read-only and the server refuses edits`, async ({
+    browser,
+  }) => {
+    const email = await addTeammate(role);
+    const page = await signInAs(browser, email);
+
+    await page.goto("/settings/organization");
+    // They can read the saved profile…
+    await expect(page.getByLabel("Community served")).toHaveValue(
+      PROFILE.community,
+    );
+    await expect(page.getByText("View only")).toBeVisible();
+    // …but every field is disabled and there's no Save button.
+    await expect(page.getByLabel("Community served")).toBeDisabled();
+    await expect(page.getByLabel("Mission")).toBeDisabled();
+    await expect(page.getByLabel("Focus areas")).toBeDisabled();
+    await expect(
+      page.getByRole("button", { name: "Save profile" }),
+    ).toBeHidden();
+
+    // Bypass the UI entirely: re-enable the form in the DOM and submit.
+    // The Server Action must still refuse.
+    await page.evaluate(() => {
+      const form = document.querySelector("form")!;
+      form.querySelector("fieldset")!.disabled = false;
+      const field = form.querySelector<HTMLInputElement>(
+        'input[name="communityServed"]',
+      )!;
+      field.value = "Tampered by a read-only user";
+      form.requestSubmit();
+    });
+    await expect(
+      page.getByText(
+        "Only owners and admins can edit the organization profile.",
+      ),
+    ).toBeVisible();
+
+    await page.reload();
+    await expect(page.getByLabel("Community served")).toHaveValue(
+      PROFILE.community,
+    );
+    await page.context().close();
+  });
+}
