@@ -313,6 +313,8 @@ export function OnboardingChecklist({
 function StepRow({ step }: { step: ChecklistStep }) {
   return (
     <div
+      data-testid={`onboarding-step-${step.key}`}
+      data-done={step.done ? "true" : "false"}
       style={{
         display: "flex",
         alignItems: "flex-start",

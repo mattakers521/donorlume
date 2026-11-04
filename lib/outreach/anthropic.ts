@@ -38,7 +38,17 @@ export const OUTREACH_MODEL = "claude-sonnet-4-6";
 export async function generateDraft(
   campaign: CampaignConfig,
   donor: DonorContext,
-): Promise<{ subject: string; body: string; usage: Anthropic.Usage }> {
+): Promise<{
+  subject: string;
+  body: string;
+  usage: Anthropic.Usage;
+  /**
+   * Test mode only: the exact prompt that WOULD have been sent, so the
+   * Playwright suite can assert what context grounded the draft.
+   * Never populated on the real Anthropic path.
+   */
+  testPrompt?: { system: string; user: string };
+}> {
   // Playwright E2E shim — return a deterministic canned draft instead
   // of hitting Anthropic when the test env opts in. The flag is
   // refused in production (NODE_ENV === "production") so it can't
@@ -54,6 +64,12 @@ export async function generateDraft(
       );
     }
     return {
+      testPrompt: {
+        system: buildSystemPrompt(campaign)
+          .map((b) => b.text)
+          .join("\n"),
+        user: buildUserPrompt(donor, campaign.emailType),
+      },
       subject: `Test subject for ${donor.name}`,
       body: `Hi ${donor.name},\n\nThis is a deterministic test draft generated for the Playwright E2E suite. It exists so the outreach test can verify the full persistence pipeline without burning real Anthropic credits.\n\nWarmly,\n${campaign.senderName ?? "DonorLume"}`,
       usage: {

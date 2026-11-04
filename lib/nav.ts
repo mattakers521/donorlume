@@ -67,7 +67,7 @@ export const NAV_SECONDARY_GROUPS: NavGroup[] = [
     items: [
       {
         id: "organization",
-        label: "Organization",
+        label: "Organization Profile",
         path: "/settings/organization",
         Icon: Building2,
       },
@@ -159,8 +159,8 @@ export const PAGE_TITLES: Record<string, { title: string; sub?: string }> = {
     sub: "Your subscription, usage, and plan options.",
   },
   "/settings/organization": {
-    title: "Organization",
-    sub: "Profile, mission, and contact details that feed AI outreach + prospect matching.",
+    title: "Organization Profile",
+    sub: "Your why — the mission, community, and focus areas that ground every AI draft.",
   },
   "/settings/team": {
     title: "Team Members",

@@ -141,7 +141,7 @@ export function SettingsForm({
 
 // ─── Field building blocks ─────────────────────────────────────────────
 
-const inputBase: React.CSSProperties = {
+export const inputBase: React.CSSProperties = {
   width: "100%",
   padding: "12px 14px",
   borderRadius: 12,
@@ -155,7 +155,7 @@ const inputBase: React.CSSProperties = {
   transition: "border-color 0.15s, box-shadow 0.15s",
 };
 
-const labelStyle: React.CSSProperties = {
+export const labelStyle: React.CSSProperties = {
   display: "block",
   fontSize: 12,
   fontWeight: 800,
@@ -165,7 +165,7 @@ const labelStyle: React.CSSProperties = {
   marginBottom: 6,
 };
 
-const helpStyle: React.CSSProperties = {
+export const helpStyle: React.CSSProperties = {
   fontSize: 12.5,
   color: C.textBody,
   marginTop: 6,
@@ -189,11 +189,14 @@ export function TextRow({
   type = "text",
   required,
   autoComplete,
+  inputMode,
 }: FieldProps & {
   defaultValue?: string;
   placeholder?: string;
   type?: "text" | "email" | "password" | "url";
   autoComplete?: string;
+  /** Mobile-keyboard hint without browser-enforced validation (e.g. "url"). */
+  inputMode?: React.HTMLAttributes<HTMLInputElement>["inputMode"];
 }) {
   return (
     <label style={{ display: "block" }}>
@@ -205,6 +208,7 @@ export function TextRow({
         defaultValue={defaultValue}
         placeholder={placeholder}
         autoComplete={autoComplete}
+        inputMode={inputMode}
         style={inputBase}
         onFocus={(e) => {
           e.currentTarget.style.borderColor = C.amber;

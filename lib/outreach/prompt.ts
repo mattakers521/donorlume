@@ -16,8 +16,13 @@ import type Anthropic from "@anthropic-ai/sdk";
 export type CampaignConfig = {
   orgName: string;
   mission: string;
-  /** From /settings/organization. Used by the AI to anchor audience and tone. */
-  causeArea?: string | null;
+  /**
+   * Organization Profile grounding (Phase 1 Feature 1) — read server-side
+   * from /settings/organization on every generation, never from the
+   * client. See lib/org-profile.ts `promptProfileFrom`.
+   */
+  communityServed?: string | null;
+  focusAreas?: string[];
   campaignName?: string | null;
   senderName?: string | null;
   senderTitle?: string | null;
@@ -72,13 +77,20 @@ export function buildSystemPrompt(
     "",
     "Organization context:",
     `- Mission: ${c.mission}`,
-    ...(c.causeArea?.trim() ? [`- Cause area: ${c.causeArea.trim()}`] : []),
+    ...(c.communityServed?.trim()
+      ? [`- Community served: ${c.communityServed.trim()}`]
+      : []),
+    ...(c.focusAreas && c.focusAreas.length > 0
+      ? [`- Focus areas: ${c.focusAreas.join(", ")}`]
+      : []),
     `- Current campaign: ${c.campaignName?.trim() || "General fund"}`,
     `- Sender: ${senderLine}`,
     "",
     "Rules:",
     "- Output the literal Subject: line first, then a blank line, then the body.",
     "- Personalize using the donor's history and notes.",
+    "- Ground the email in the organization context above: speak from the mission, name the community served where it fits naturally, and keep any impact story within the focus areas.",
+    "- Never invent programs, statistics, or people that the organization context and donor notes don't support.",
     "- Adjust approach by donor type (Individual / Foundation / Corporate).",
     "- Keep it under 250 words.",
     "- No placeholder brackets or template tokens.",

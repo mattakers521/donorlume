@@ -7,6 +7,7 @@ import { TRIAL_AI_EMAIL_LIMIT } from "@/lib/billing/plans";
 import { effectivePlan, isInUnpaidTrial } from "@/lib/billing/trial";
 import { checkLimit } from "@/lib/billing/usage";
 import { generateDraft } from "@/lib/outreach/anthropic";
+import { promptProfileFrom } from "@/lib/org-profile";
 import type {
   CampaignConfig,
   DonorContext,
@@ -161,18 +162,23 @@ export const POST = withOrg(async (req, { auth }) => {
     }
   }
 
-  // Pull the org's causeArea server-side so a user updating
-  // /settings/organization propagates to outreach without the client
-  // having to re-pass it through every draft request.
+  // Pull the Organization Profile server-side (scoped to the caller's
+  // org) so edits on /settings/organization ground the very next draft
+  // without the client re-passing anything — and so a client can't
+  // inject someone else's profile.
   const orgRow = await prisma.organization.findUnique({
     where: { id: auth.org.id },
-    select: { causeArea: true },
+    select: { communityServed: true, focusAreas: true, causeArea: true },
   });
+  const profile = orgRow
+    ? promptProfileFrom(orgRow)
+    : { communityServed: null, focusAreas: [] };
 
   const config: CampaignConfig = {
     orgName: promptConfig.orgName,
     mission: promptConfig.mission,
-    causeArea: orgRow?.causeArea ?? null,
+    communityServed: profile.communityServed,
+    focusAreas: profile.focusAreas,
     campaignName: campaign.campaign,
     senderName: promptConfig.senderName ?? null,
     senderTitle: promptConfig.senderTitle ?? null,
@@ -185,10 +191,12 @@ export const POST = withOrg(async (req, { auth }) => {
 
   let subject: string;
   let body: string;
+  let testPrompt: { system: string; user: string } | undefined;
   try {
     const result = await generateDraft(config, donorCtx);
     subject = result.subject;
     body = result.body;
+    testPrompt = result.testPrompt;
   } catch (e) {
     if (e instanceof Anthropic.APIError) {
       return NextResponse.json(
@@ -228,5 +236,10 @@ export const POST = withOrg(async (req, { auth }) => {
     }),
   ]);
 
-  return NextResponse.json({ draft }, { status: 201 });
+  // `testPrompt` is only ever set by the PLAYWRIGHT_TEST_MODE shim,
+  // which itself refuses to run when NODE_ENV === "production".
+  return NextResponse.json(
+    testPrompt ? { draft, testPrompt } : { draft },
+    { status: 201 },
+  );
 });

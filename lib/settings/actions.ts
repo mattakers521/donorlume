@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import { auth } from "@/auth";
+import { normalizeFocusAreas, normalizeUrl } from "@/lib/org-profile";
 import { prisma } from "@/lib/prisma";
 
 type Ok = { ok: true; message?: string };
@@ -34,12 +35,30 @@ async function requireOrgUser(): Promise<
 
 const orgSchema = z.object({
   name: z.string().trim().min(1, "Name is required").max(200),
-  mission: z.string().trim().max(2000).optional().nullable(),
-  causeArea: z.string().trim().max(120).optional().nullable(),
+  mission: z
+    .string()
+    .trim()
+    .max(2000, "Mission must be under 2,000 characters")
+    .optional()
+    .nullable(),
+  communityServed: z
+    .string()
+    .trim()
+    .max(200, "Community served must be under 200 characters")
+    .optional()
+    .nullable(),
+  focusAreas: z.string().max(2000).optional().nullable(),
   address: z.string().trim().max(500).optional().nullable(),
   website: z.string().trim().max(300).optional().nullable(),
+  donationPageUrl: z.string().trim().max(500).optional().nullable(),
   logo: z.string().trim().max(500).optional().nullable(),
 });
+
+const URL_FIELD_LABEL = {
+  website: "Website",
+  donationPageUrl: "Donation page",
+  logo: "Logo URL",
+} as const;
 
 export async function updateOrganization(formData: FormData): Promise<Result> {
   const ctx = await requireOrgUser();
@@ -48,9 +67,11 @@ export async function updateOrganization(formData: FormData): Promise<Result> {
   const parsed = orgSchema.safeParse({
     name: formData.get("name"),
     mission: formData.get("mission"),
-    causeArea: formData.get("causeArea"),
+    communityServed: formData.get("communityServed"),
+    focusAreas: formData.get("focusAreas"),
     address: formData.get("address"),
     website: formData.get("website"),
+    donationPageUrl: formData.get("donationPageUrl"),
     logo: formData.get("logo"),
   });
   if (!parsed.success) {
@@ -62,21 +83,40 @@ export async function updateOrganization(formData: FormData): Promise<Result> {
   }
 
   const d = parsed.data;
+
+  // Normalize + validate every URL field ("vetlife.org" → https://…).
+  // http(s) only — these render as links and, in Feature 3, as the
+  // public "Give now" target.
+  const urls: Record<keyof typeof URL_FIELD_LABEL, string | null> = {
+    website: null,
+    donationPageUrl: null,
+    logo: null,
+  };
+  for (const key of Object.keys(URL_FIELD_LABEL) as (keyof typeof URL_FIELD_LABEL)[]) {
+    const result = normalizeUrl(d[key]);
+    if ("error" in result) {
+      return { ok: false, error: `${URL_FIELD_LABEL[key]} ${result.error}.` };
+    }
+    urls[key] = result.value;
+  }
+
   await prisma.organization.update({
     where: { id: ctx.orgId },
     data: {
       name: d.name,
       mission: d.mission || null,
-      causeArea: d.causeArea || null,
+      communityServed: d.communityServed || null,
+      focusAreas: normalizeFocusAreas(d.focusAreas ?? ""),
       address: d.address || null,
-      website: d.website || null,
-      logo: d.logo || null,
+      website: urls.website,
+      donationPageUrl: urls.donationPageUrl,
+      logo: urls.logo,
     },
   });
 
   revalidatePath("/settings/organization");
   revalidatePath("/dashboard");
-  return { ok: true, message: "Organization profile updated." };
+  return { ok: true, message: "Organization profile saved." };
 }
 
 // ─── /settings/preferences (legacy /settings) ──────────────────────────

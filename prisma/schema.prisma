@@ -61,6 +61,18 @@ model Organization {
    */
   signupPath String?
 
+  // ─── Organization Profile ("Your Why") — Phase 1 Feature 1 ───
+  // Grounds every AI feature. `mission`, `website`, and `logo` above
+  // double as the profile's missionStatement / websiteUrl / logoUrl
+  // (reused rather than renamed — see CLAUDE.md). `focusAreas`
+  // supersedes the single free-form `causeArea` (backfilled from it
+  // in migration 20261104_org_profile; causeArea is no longer written).
+  communityServed String?
+  focusAreas      String[] @default([])
+  // The org's existing external giving page. Need Cards (Feature 3)
+  // link out here — DonorLume itself moves no money in Phase 1.
+  donationPageUrl String?
+
   users             OrgUser[]
   prospects         Prospect[]
   donorLists        DonorList[]

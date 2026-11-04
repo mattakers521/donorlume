@@ -2,6 +2,7 @@ import "server-only";
 
 import { cache } from "react";
 
+import { isProfileGrounded } from "@/lib/org-profile";
 import { prisma } from "@/lib/prisma";
 
 export type OnboardingStepKey =
@@ -53,6 +54,9 @@ type OrgForOnboarding = {
   id: string;
   name: string;
   mission: string | null;
+  /** Organization Profile grounding fields (Phase 1 Feature 1). */
+  communityServed: string | null;
+  focusAreas: string[];
   /** "event" | "donors" | null — from the landing "Choose Your Path" cards. */
   signupPath: string | null;
 };
@@ -95,8 +99,19 @@ export const getOnboardingState = cache(
       }),
     ]);
 
+    // Done once the profile can ground AI output: mission + community
+    // served + at least one focus area (see lib/org-profile.ts). Links
+    // and logo raise profile strength but aren't required here.
     const profileDone =
-      !!org.name?.trim() && !!org.mission?.trim();
+      !!org.name?.trim() &&
+      isProfileGrounded({
+        mission: org.mission,
+        communityServed: org.communityServed,
+        focusAreas: org.focusAreas,
+        website: null,
+        donationPageUrl: null,
+        logo: null,
+      });
     const outreachDone = campaignCount > 0;
     const sendHref = latestCampaign
       ? `/outreach/campaigns/${latestCampaign.id}?onboarding=1`
@@ -110,11 +125,11 @@ export const getOnboardingState = cache(
     const steps: OnboardingStep[] = [
       {
         key: "profile",
-        title: "Complete your org profile",
-        body: "Add your mission and sender details — so every AI-written email sounds like it came from you, not a template.",
-        cta: "Edit profile",
-        href: "/settings",
-        completedToast: "You've filled out your org profile.",
+        title: "Complete your organization profile",
+        body: "Tell us your mission, the community you serve, and your focus areas — so every AI-written email sounds like it came from you, not a template.",
+        cta: "Complete profile",
+        href: "/settings/organization",
+        completedToast: "You've completed your organization profile.",
         done: profileDone,
       },
       // Donors-step copy varies on Organization.signupPath. Event-path

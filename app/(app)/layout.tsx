@@ -30,6 +30,8 @@ export default async function AppLayout({
       id: org.id,
       name: org.name,
       mission: org.mission,
+      communityServed: org.communityServed,
+      focusAreas: org.focusAreas,
       signupPath: org.signupPath,
     },
     user.dismissedOnboarding,
