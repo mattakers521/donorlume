@@ -217,7 +217,12 @@ async function addTeammate(role: "MEMBER" | "VIEWER"): Promise<string> {
 }
 
 async function signInAs(browser: Browser, email: string): Promise<Page> {
-  const ctx = await browser.newContext();
+  // Explicitly empty: otherwise the file-level `test.use({ storageState })`
+  // carries the OWNER's session into this context and /login bounces
+  // straight to /dashboard.
+  const ctx = await browser.newContext({
+    storageState: { cookies: [], origins: [] },
+  });
   const page = await ctx.newPage();
   await page.goto("/login");
   await page.getByPlaceholder("you@yourorg.com").fill(email);
