@@ -40,8 +40,14 @@ export type CampaignConfig = {
 };
 
 /**
+ * Time zone for the prompt's "today". Pinned explicitly (not the
+ * server's zone — Vercel runs in UTC) so an evening draft in the US
+ * doesn't show tomorrow's date. Handles EST/EDT automatically.
+ */
+export const PROMPT_TIME_ZONE = "America/New_York";
+
+/**
  * Human-readable date for the prompt, e.g. "Wednesday, November 4, 2026".
- * Pinned to UTC so the server, the Playwright suite, and Vercel all agree.
  */
 export function formatPromptDate(d: Date): string {
   return d.toLocaleDateString("en-US", {
@@ -49,7 +55,7 @@ export function formatPromptDate(d: Date): string {
     year: "numeric",
     month: "long",
     day: "numeric",
-    timeZone: "UTC",
+    timeZone: PROMPT_TIME_ZONE,
   });
 }
 

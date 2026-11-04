@@ -57,3 +57,44 @@ on screen tells them why.
 The Feature 1 role tests (`tests/e2e/org-profile.spec.ts`) add teammates to
 the test org directly in the database instead of through invites, so the test
 user only belongs to one org.
+
+---
+
+## Reactivation emails ask for concrete impact stories with no real facts to draw on
+
+**Found:** 2026-11-04, while tightening the outreach prompt's no-invention rule.
+**Severity:** Medium. Affects the quality of lapsed-donor reactivation drafts;
+nothing breaks.
+**Plan:** Connect to Impact Cards in Phase 1 Feature 3. Until then the
+reactivation rules stay as they are, by decision.
+
+### What happens
+
+Two prompt rules pull in opposite directions:
+
+- The lapsed-reactivation block in `buildUserPrompt()` (`lib/outreach/prompt.ts`,
+  "FIRST-TOUCH REACTIVATION") says **STORY SECOND**: share one concrete impact
+  moment, such as a specific person served or a milestone reached.
+- The system prompt now forbids any financial, impact or use-of-funds claim, and
+  any invented programs, statistics or people, unless that exact fact is in the
+  org profile or the donor's notes.
+
+No org has anywhere to record real impact facts today. The Organization Profile
+holds mission, community and focus areas, but no stories, outcomes or numbers.
+So the model either writes general impact language from the mission (what the
+no-invention rule asks for) or is tempted to invent a "concrete" story (what the
+reactivation rule asks for). Drafts will mostly come out general, which
+underdelivers on STORY SECOND.
+
+### Likely fix (Feature 3)
+
+- Treat published **Impact Cards** (outcome summary, dollars invested,
+  volunteers mobilized, hours donated, linked Need Card) as the org's source of
+  real impact facts.
+- Pass the org's most recent or most relevant published Impact Card(s) into the
+  outreach prompt's organization context, scoped to the org server-side like
+  the profile fields.
+- Rewrite STORY SECOND to "use one of the impact facts provided; if none are
+  provided, describe impact in general terms from the mission."
+- Add a Playwright test that an Impact Card's outcome appears in the assembled
+  prompt, and that no story text is requested when there are no cards.

@@ -3,6 +3,8 @@ import bcrypt from "bcryptjs";
 import fs from "node:fs";
 import path from "node:path";
 
+import { formatPromptDate } from "../../lib/outreach/prompt";
+
 // Phase 1 · Feature 1 — Organization Profile ("Your Why").
 // Shares the global-setup user. That user signs up with a name +
 // mission only, so the profile starts at 1 of 6 fields (17%).
@@ -160,14 +162,14 @@ async function generateTestDraft(
 const NO_LINK_RULE =
   "- No donation link is available. Do not include any URL, link, or link placeholder (such as [donation link]).";
 
-/** Same format as lib/outreach/prompt.ts formatPromptDate (UTC). */
+/** Same format as lib/outreach/prompt.ts formatPromptDate (America/New_York). */
 const promptDate = (d: Date) =>
   d.toLocaleDateString("en-US", {
     weekday: "long",
     year: "numeric",
     month: "long",
     day: "numeric",
-    timeZone: "UTC",
+    timeZone: "America/New_York",
   });
 
 test("the outreach prompt carries today's date and the no-claims rule", async ({
@@ -176,14 +178,23 @@ test("the outreach prompt carries today's date and the no-claims rule", async ({
   const before = promptDate(new Date());
   const prompt = await generateTestDraft(page, { name: "Date Check Donor" });
   const after = promptDate(new Date());
-  // Tolerate a run that straddles UTC midnight.
+  // Tolerate a run that straddles midnight in New York.
   const dateLine = prompt.system
     .split("\n")
     .find((l) => l.startsWith("- Today's date: "));
   expect([`- Today's date: ${before}`, `- Today's date: ${after}`]).toContain(
     dateLine,
   );
-  expect(dateLine).toContain(String(new Date().getUTCFullYear()));
+  expect(dateLine).toMatch(/, \d{4}$/);
+  // Evening in New York is already "tomorrow" in UTC — the prompt must
+  // still say today. 10:30pm EST Nov 4 = 03:30 UTC Nov 5.
+  expect(formatPromptDate(new Date("2026-11-05T03:30:00Z"))).toBe(
+    "Wednesday, November 4, 2026",
+  );
+  // DST is handled too: 11pm EDT July 4 = 03:00 UTC July 5.
+  expect(formatPromptDate(new Date("2026-07-05T03:00:00Z"))).toBe(
+    "Saturday, July 4, 2026",
+  );
   expect(prompt.system).toContain("Never guess the year.");
   expect(prompt.system).toContain(
     "- Never state a financial, impact, or use-of-funds claim",
