@@ -3,6 +3,7 @@ import bcrypt from "bcryptjs";
 import fs from "node:fs";
 import path from "node:path";
 
+import { findMarkdown } from "../../lib/outreach/plain-text";
 import { formatPromptDate } from "../../lib/outreach/prompt";
 
 // Phase 1 · Feature 1 — Organization Profile ("Your Why").
@@ -126,7 +127,7 @@ test("profile completeness updates when a field is cleared", async ({
 async function generateTestDraft(
   page: Page,
   donor: Record<string, unknown>,
-): Promise<{ subject: string; system: string; user: string }> {
+): Promise<{ subject: string; body: string; system: string; user: string }> {
   const campaignRes = await page.request.post("/api/outreach/campaigns", {
     data: {
       name: "Profile grounding check",
@@ -154,6 +155,7 @@ async function generateTestDraft(
   const body = await draftRes.json();
   return {
     subject: body.draft.subject,
+    body: body.draft.body,
     system: body.testPrompt.system,
     user: body.testPrompt.user,
   };
@@ -200,6 +202,31 @@ test("the outreach prompt carries today's date and the no-claims rule", async ({
     "- Never state a financial, impact, or use-of-funds claim",
   );
   expect(prompt.system).toContain("every dollar stays right here");
+});
+
+test("drafts are plain text: the prompt forbids markdown and the draft has none", async ({
+  page,
+}) => {
+  // The detector catches what a real draft slipped in before this rule…
+  expect(findMarkdown("a way of saying *I'm with you* to every veteran")).toEqual(
+    ["asterisk"],
+  );
+  expect(findMarkdown("**Bold** and _italic_\n- a bullet\n# Heading")).toEqual([
+    "asterisk",
+    "underscore",
+    "heading (#)",
+    "bullet symbol",
+  ]);
+  // …and passes ordinary prose (em dashes, $ amounts, apostrophes).
+  expect(
+    findMarkdown("Join us at $5, $10, or $25 a month — it's simple.\n\nWarmly,\nMatt"),
+  ).toEqual([]);
+
+  const draft = await generateTestDraft(page, { name: "Plain Text Donor" });
+  expect(draft.system).toContain(
+    "- Write in plain text only. No markdown or formatting characters",
+  );
+  expect(findMarkdown(`${draft.subject}\n${draft.body}`)).toEqual([]);
 });
 
 test("a generated draft is grounded in the profile", async ({ page }) => {

@@ -137,6 +137,7 @@ export function buildSystemPrompt(
     "- Adjust approach by donor type (Individual / Foundation / Corporate).",
     "- Keep it under 250 words.",
     "- No placeholder brackets or template tokens.",
+    "- Write in plain text only. No markdown or formatting characters: no asterisks, underscores, pound signs, or backticks; no bold or italics; no bullet symbols or bulleted lists. Use ordinary sentences and paragraphs — emails are sent as plain text, so any such characters show up literally.",
     linkRule,
     signatureRule,
     `- Tone: ${tone}`,
