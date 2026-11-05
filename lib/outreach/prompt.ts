@@ -13,6 +13,14 @@
 
 import type Anthropic from "@anthropic-ai/sdk";
 
+import {
+  PROMPT_TIME_ZONE,
+  formatPromptDate,
+  linkRuleFor,
+  signatureRuleFor,
+  writingRules,
+} from "@/lib/ai/writing-rules";
+
 export type CampaignConfig = {
   orgName: string;
   mission: string;
@@ -39,25 +47,9 @@ export type CampaignConfig = {
   today?: Date;
 };
 
-/**
- * Time zone for the prompt's "today". Pinned explicitly (not the
- * server's zone — Vercel runs in UTC) so an evening draft in the US
- * doesn't show tomorrow's date. Handles EST/EDT automatically.
- */
-export const PROMPT_TIME_ZONE = "America/New_York";
-
-/**
- * Human-readable date for the prompt, e.g. "Wednesday, November 4, 2026".
- */
-export function formatPromptDate(d: Date): string {
-  return d.toLocaleDateString("en-US", {
-    weekday: "long",
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-    timeZone: PROMPT_TIME_ZONE,
-  });
-}
+// Date helpers moved to the shared writing-rules module; re-exported
+// so existing imports (tests, callers) keep working.
+export { PROMPT_TIME_ZONE, formatPromptDate };
 
 export type DonorContext = {
   name: string;
@@ -97,17 +89,9 @@ export function buildSystemPrompt(
   const senderLine = c.senderName
     ? `${c.senderName}${c.senderTitle ? `, ${c.senderTitle}` : ""}`
     : "Development Team";
-  // The signature is spelled out verbatim so the model can't merge in a
-  // different org name or title (seen in a real VETLIFE test draft).
-  const signatureRule = c.senderName?.trim()
-    ? `- Sign off with a short closing (e.g. "Warmly,") followed by the signature exactly as given: "${c.senderName.trim()}" on one line${c.senderTitle?.trim() ? `, then "${c.senderTitle.trim()}" on the next` : ""}. Do not add an organization name, change the title, or add anything after the signature.`
-    : `- Sign off with a short closing (e.g. "Warmly,") followed by exactly "The ${c.orgName} Team". Do not invent a person's name or title.`;
-  // Links: only the org's saved donation page, verbatim — or none at all.
-  // Without this the model writes "[donation link]" placeholders.
+  const signatureRule = signatureRuleFor(c);
   const donationUrl = c.donationPageUrl?.trim() || null;
-  const linkRule = donationUrl
-    ? "- If the email invites a gift, link to the donation page exactly as written above. Never include any other URL, and never alter that one."
-    : "- No donation link is available. Do not include any URL, link, or link placeholder (such as [donation link]). If the email invites a gift, ask the reader to simply reply to this email to learn how to give.";
+  const linkRule = linkRuleFor(donationUrl, "email");
   const tone = TONE_LABEL[c.tone] ?? c.tone;
   const type = TYPE_LABEL[c.emailType] ?? c.emailType;
 
@@ -131,13 +115,12 @@ export function buildSystemPrompt(
     "- Output the literal Subject: line first, then a blank line, then the body.",
     "- Personalize using the donor's history and notes.",
     "- Ground the email in the organization context above: speak from the mission, name the community served where it fits naturally, and keep any impact story within the focus areas.",
-    "- Use today's date above for any mention of the current year, season, or upcoming dates. Never guess the year.",
-    "- Never invent programs, statistics, or people that the organization context and donor notes don't support.",
-    "- Never state a financial, impact, or use-of-funds claim — what a gift amount buys, how many people were served, overhead or admin costs, or where the money goes (e.g. \"every dollar stays right here\", \"100% goes directly to veterans\") — unless that exact fact appears in the organization context or the donor's notes. When no such fact is given, describe impact in general terms drawn from the mission.",
+    ...writingRules({
+      factSources: "the organization context or the donor's notes",
+    }),
     "- Adjust approach by donor type (Individual / Foundation / Corporate).",
     "- Keep it under 250 words.",
     "- No placeholder brackets or template tokens.",
-    "- Write in plain text only. No markdown or formatting characters: no asterisks, underscores, pound signs, or backticks; no bold or italics; no bullet symbols or bulleted lists. Use ordinary sentences and paragraphs — emails are sent as plain text, so any such characters show up literally.",
     linkRule,
     signatureRule,
     `- Tone: ${tone}`,
