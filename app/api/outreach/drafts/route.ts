@@ -3,9 +3,7 @@ import { NextResponse } from "next/server";
 import type { Prisma } from "@prisma/client";
 import { z } from "zod";
 
-import { TRIAL_AI_EMAIL_LIMIT } from "@/lib/billing/plans";
-import { effectivePlan, isInUnpaidTrial } from "@/lib/billing/trial";
-import { checkLimit } from "@/lib/billing/usage";
+import { checkAiCap } from "@/lib/billing/ai-usage";
 import { generateDraft } from "@/lib/outreach/anthropic";
 import { EMPTY_PROMPT_PROFILE, promptProfileFrom } from "@/lib/org-profile";
 import type {
@@ -86,64 +84,14 @@ export const POST = withOrg(async (req, { auth }) => {
     );
   }
 
-  // ─── AI-email cap ────────────────────────────────────────────────────
-  // Two distinct gates depending on billing state:
-  //   • Unpaid-trial orgs → hard cap of TRIAL_AI_EMAIL_LIMIT (25) drafts
-  //     LIFETIME across the trial. Sending those drafts is still
-  //     unlimited so trial users experience the full open/click/reply
-  //     pipeline.
-  //   • Paid orgs (and orgs whose trial has expired) → existing monthly
-  //     cap based on effectivePlan().limits.aiEmailsPerMonth.
-  //
-  // We check on every draft generation so a sequential per-donor loop
-  // gets a clean mid-batch stop with a 402 the moment the cap is hit.
-  if (
-    isInUnpaidTrial({
-      trialEndsAt: auth.org.trialEndsAt,
-      stripeSubscriptionId: auth.org.stripeSubscriptionId,
-    })
-  ) {
-    const trialDraftsLifetime = await prisma.outreachDraft.count({
-      where: { campaign: { orgId: auth.org.id } },
-    });
-    if (trialDraftsLifetime >= TRIAL_AI_EMAIL_LIMIT) {
-      return NextResponse.json(
-        {
-          error: `You've used all ${TRIAL_AI_EMAIL_LIMIT} trial outreach drafts. Upgrade to keep generating personalized outreach — plans start at $49/mo.`,
-          limit: TRIAL_AI_EMAIL_LIMIT,
-          current: trialDraftsLifetime,
-          kind: "trialAiEmails",
-        },
-        { status: 402 },
-      );
-    }
-  } else {
-    const monthStart = new Date();
-    monthStart.setUTCDate(1);
-    monthStart.setUTCHours(0, 0, 0, 0);
-    const draftsThisMonth = await prisma.outreachDraft.count({
-      where: {
-        campaign: { orgId: auth.org.id },
-        createdAt: { gte: monthStart },
-      },
-    });
-    const planCheck = checkLimit(
-      effectivePlan(auth.org.plan, auth.org.trialEndsAt),
-      "aiEmailsPerMonth",
-      draftsThisMonth,
-      1,
-    );
-    if (!planCheck.ok) {
-      return NextResponse.json(
-        {
-          error: `${planCheck.planName} plan includes ${planCheck.limit.toLocaleString()} AI outreach emails per month. Upgrade to keep generating.`,
-          limit: planCheck.limit,
-          current: draftsThisMonth,
-          kind: planCheck.kind,
-        },
-        { status: 402 },
-      );
-    }
+  // ─── AI cap ──────────────────────────────────────────────────────────
+  // Shared with the Assistants hub (lib/billing/ai-usage.ts): unpaid
+  // trials get a lifetime cap, paid plans a monthly one. Checked on
+  // every draft so the client's sequential per-donor loop gets a clean
+  // mid-batch stop with a 402 the moment the cap is hit.
+  const capBlock = await checkAiCap(auth.org);
+  if (capBlock) {
+    return NextResponse.json(capBlock, { status: 402 });
   }
 
   // If donorId is supplied, verify it belongs to a DonorList owned by

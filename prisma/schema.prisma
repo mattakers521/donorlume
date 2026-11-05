@@ -3,7 +3,7 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
+  provider  = "postgresql"
   // Pooled connection — used by the app at runtime. Neon's pgbouncer
   // multiplexes requests across a small pool of real Postgres
   // connections, which is what lets a serverless function not exhaust
@@ -80,6 +80,7 @@ model Organization {
   cohortDefinitions CohortDefinition[]
   settings          OrgSettings?
   invitations       Invitation[]
+  aiGenerations     AiGeneration[]
 }
 
 model User {
@@ -117,15 +118,16 @@ model User {
   // happens once at reset time. The unique index makes the lookup an
   // O(1) hit; the expiry is checked server-side at /api/auth/reset-password
   // and forces the user back through /forgot-password if it's expired.
-  resetToken           String?   @unique
-  resetTokenExpiresAt  DateTime?
+  resetToken          String?   @unique
+  resetTokenExpiresAt DateTime?
 
-  orgs            OrgUser[]
-  outreachDrafts  OutreachDraft[]
-  accounts        Account[]
-  sentInvitations Invitation[]
+  orgs               OrgUser[]
+  outreachDrafts     OutreachDraft[]
+  accounts           Account[]
+  sentInvitations    Invitation[]
   uploadedDonorLists DonorList[]
-  claimedDonors      Donor[]    @relation("DonorClaim")
+  claimedDonors      Donor[]         @relation("DonorClaim")
+  aiGenerations      AiGeneration[]
 }
 
 // ─── NEXTAUTH (JWT strategy — no Session model needed) ───
@@ -273,19 +275,19 @@ enum ProspectStatus {
 // ─── LAPSED DONOR SCORING ───
 
 model DonorList {
-  id          String    @id @default(cuid())
-  orgId       String
-  name        String // "Spring 2026 Upload", "Full CRM Export"
-  fileName    String
-  fileUrl     String? // S3 path
-  totalDonors Int
-  lapsedCount Int?
-  processedAt DateTime?
+  id               String    @id @default(cuid())
+  orgId            String
+  name             String // "Spring 2026 Upload", "Full CRM Export"
+  fileName         String
+  fileUrl          String? // S3 path
+  totalDonors      Int
+  lapsedCount      Int?
+  processedAt      DateTime?
   // Who uploaded the list. Nullable so the column backfills as NULL on
   // pre-existing rows and so a user delete doesn't cascade-delete the
   // org's historical upload records (use SetNull).
   uploadedByUserId String?
-  createdAt   DateTime  @default(now())
+  createdAt        DateTime  @default(now())
 
   org        Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
   uploadedBy User?        @relation(fields: [uploadedByUserId], references: [id], onDelete: SetNull)
@@ -341,31 +343,31 @@ model Donor {
 // ─── COHORT SYSTEM (Spec §1) ───
 
 model CohortDefinition {
-  id           String       @id @default(cuid())
-  orgId        String
-  name         String
-  slug         String
-  family       CohortFamily
-  type         CohortType
-  description  String?
+  id          String       @id @default(cuid())
+  orgId       String
+  name        String
+  slug        String
+  family      CohortFamily
+  type        CohortType
+  description String?
 
   /// SYSTEM cohorts store their auto-classification rule as JSON
   /// (see lib/cohorts/rules.ts for the operator vocabulary).
-  rule         Json?
+  rule Json?
 
   /// For tag-based cohorts seeded from CSV column values (Phase 2).
   sourceColumn String?
   sourceValue  String?
 
-  color        String?
-  icon         String?
-  sortOrder    Int          @default(0)
-  isArchived   Boolean      @default(false)
-  createdAt    DateTime     @default(now())
-  updatedAt    DateTime     @updatedAt
+  color      String?
+  icon       String?
+  sortOrder  Int      @default(0)
+  isArchived Boolean  @default(false)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
 
-  org          Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
-  members      DonorCohort[]
+  org     Organization  @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  members DonorCohort[]
 
   @@unique([orgId, slug])
   @@index([orgId, family])
@@ -479,4 +481,23 @@ enum DraftStatus {
   OPENED
   REPLIED
   BOUNCED
+}
+
+// Usage ledger for AI Assistants hub generations (Phase 1 Feature 2).
+// One row per generation — a Campaign Creator brief + 3 emails is still
+// one row — so assistants count toward the same AI cap as outreach
+// drafts (see lib/billing/ai-usage.ts). Deliberately stores no content:
+// assistant output is copied or handed to AI Outreach, never saved here.
+model AiGeneration {
+  id         String   @id @default(cuid())
+  orgId      String
+  userId     String?
+  assistant  String
+  quickStart String
+  createdAt  DateTime @default(now())
+
+  org  Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  user User?        @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([orgId, createdAt])
 }

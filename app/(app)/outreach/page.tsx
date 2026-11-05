@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ArrowRight, Mail, Plus } from "lucide-react";
 
+import { countAiUsage } from "@/lib/billing/ai-usage";
 import { isInUnpaidTrial } from "@/lib/billing/trial";
 import { C, brandGradient, shadow } from "@/lib/design";
 import { deriveCampaignMetrics } from "@/lib/outreach/insights";
@@ -25,11 +26,8 @@ export default async function OutreachListPage() {
     trialEndsAt: org.trialEndsAt,
     stripeSubscriptionId: org.stripeSubscriptionId,
   });
-  const trialDraftsUsed = inUnpaidTrial
-    ? await prisma.outreachDraft.count({
-        where: { campaign: { orgId: org.id } },
-      })
-    : 0;
+  // Counts outreach drafts + Assistants-hub generations (one shared cap).
+  const trialDraftsUsed = inUnpaidTrial ? await countAiUsage(org.id) : 0;
 
   const campaigns = await prisma.outreachCampaign.findMany({
     where: { orgId: org.id },

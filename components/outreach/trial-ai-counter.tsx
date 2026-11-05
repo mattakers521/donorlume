@@ -5,13 +5,13 @@ import { TRIAL_AI_EMAIL_LIMIT } from "@/lib/billing/plans";
 import { C, brandGradient } from "@/lib/design";
 
 type Props = {
-  /** Lifetime count of OutreachDrafts created by this org. */
+  /** Lifetime AI usage: outreach drafts + Assistants-hub generations. */
   used: number;
 };
 
 /**
  * Trial-only counter that shows how many of the 25 free AI drafts the
- * org has consumed. Renders two states:
+ * org has consumed (outreach drafts and assistant generations share it). Renders two states:
  *   • Below cap → a passive "X of 25 trial emails used" pill + progress
  *     bar that nudges toward upgrade but doesn't block.
  *   • At/above cap → an active upgrade card with the exact message the
@@ -88,7 +88,7 @@ export function TrialAiCounter({ used }: Props) {
                 marginBottom: 4,
               }}
             >
-              You&rsquo;ve used all {cap} trial outreach drafts.
+              You&rsquo;ve used all {cap} trial AI drafts.
             </div>
             <div
               style={{
@@ -98,7 +98,7 @@ export function TrialAiCounter({ used }: Props) {
                 fontWeight: 500,
               }}
             >
-              Upgrade to keep generating personalized outreach — plans
+              Upgrade to keep generating outreach and assistant content — plans
               start at $49/mo. You can still send everything you&rsquo;ve
               already drafted.
             </div>
@@ -165,9 +165,10 @@ export function TrialAiCounter({ used }: Props) {
             }}
           >
             <strong style={{ color: C.amberDark }}>{used}</strong> of {cap}{" "}
-            trial emails used
+            trial AI drafts used
           </span>
           <span
+            data-testid="trial-ai-remaining"
             style={{
               fontSize: 12.5,
               color: C.textBody,

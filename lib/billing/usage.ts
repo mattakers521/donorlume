@@ -1,5 +1,6 @@
 import "server-only";
 
+import { countAiUsage } from "@/lib/billing/ai-usage";
 import { getPlan, type PlanKey } from "@/lib/billing/plans";
 import { prisma } from "@/lib/prisma";
 
@@ -24,12 +25,8 @@ export async function getOrgUsage(orgId: string): Promise<OrgUsage> {
 
   const [donorRecords, aiEmailsThisMonth, seats] = await Promise.all([
     prisma.donor.count({ where: { donorList: { orgId } } }),
-    prisma.outreachDraft.count({
-      where: {
-        campaign: { orgId },
-        createdAt: { gte: monthStart },
-      },
-    }),
+    // Outreach drafts + Assistants-hub generations share one AI cap.
+    countAiUsage(orgId, monthStart),
     prisma.orgUser.count({ where: { orgId } }),
   ]);
 
