@@ -80,6 +80,9 @@ type Defaults = {
   tone: string;
   emailType: string;
   customInstructions: string;
+  /** Assistants-hub handoff (see AssistantHandoffOutreach). */
+  startingDraft?: string;
+  startingDraftSource?: string | null;
 };
 
 export type OutreachClientProps = Props;
@@ -179,6 +182,8 @@ export function OutreachClient({
       tone: defaults.tone,
       emailType: defaults.emailType,
       customInstructions: defaults.customInstructions,
+      startingDraft: defaults.startingDraft ?? "",
+      startingDraftSource: defaults.startingDraftSource ?? null,
     };
   });
 
@@ -408,6 +413,7 @@ export function OutreachClient({
               mission: config.mission,
               senderName: config.senderName || null,
               senderTitle: config.senderTitle || null,
+              startingDraft: config.startingDraft.trim() || null,
             },
           }),
         });

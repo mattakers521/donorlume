@@ -3,6 +3,7 @@
 import { Building2, ChevronRight } from "lucide-react";
 
 import { C, brandGradient, inputStyle, shadow } from "@/lib/design";
+import { MAX_STARTING_DRAFT_LENGTH } from "@/lib/outreach/prompt";
 import { PrimaryButton } from "@/components/auth-button";
 
 export type CampaignFormState = {
@@ -14,6 +15,10 @@ export type CampaignFormState = {
   tone: string;
   emailType: string;
   customInstructions: string;
+  /** Email brought from the Assistants hub; "" when none. */
+  startingDraft: string;
+  /** Assistant name ("Content Writer") when arriving from /assistants; null otherwise. */
+  startingDraftSource: string | null;
 };
 
 const TONES = [
@@ -174,6 +179,52 @@ export function OutreachSetup({ config, onChange, onContinue }: Props) {
             />
           ))}
         </div>
+
+        {config.startingDraftSource && (
+          <div
+            data-testid="starting-draft"
+            style={{
+              marginBottom: 24,
+              padding: 18,
+              borderRadius: 16,
+              backgroundColor: C.amberLight,
+            }}
+          >
+            <label
+              htmlFor="starting-draft"
+              style={{
+                display: "block",
+                fontSize: 14,
+                fontWeight: 800,
+                color: C.text,
+                marginBottom: 2,
+              }}
+            >
+              Starting draft
+            </label>
+            <div
+              id="starting-draft-help"
+              style={{
+                fontSize: 13,
+                fontWeight: 600,
+                color: C.amberDark,
+                marginBottom: 10,
+              }}
+            >
+              From {config.startingDraftSource}. The AI will personalize this
+              for each donor.
+            </div>
+            <textarea
+              id="starting-draft"
+              aria-describedby="starting-draft-help"
+              value={config.startingDraft}
+              maxLength={MAX_STARTING_DRAFT_LENGTH}
+              onChange={(e) => update("startingDraft", e.target.value)}
+              rows={12}
+              style={{ ...inputStyle, resize: "vertical", lineHeight: 1.6 }}
+            />
+          </div>
+        )}
 
         <div style={{ marginBottom: 28 }}>
           <Label>Custom Instructions</Label>

@@ -40,6 +40,13 @@ export type CampaignConfig = {
   emailType: string;
   customInstructions?: string | null;
   /**
+   * An email the user brought from the Assistants hub and approved in
+   * the "Starting draft" field. When set, each donor's email is this
+   * draft personalized — not a fresh composition. Campaign-stable, so
+   * it lives in the (cached) system prompt.
+   */
+  startingDraft?: string | null;
+  /**
    * "Now" for the prompt's date line. Defaults to the real current time;
    * injectable so callers/tests can pin it. Changes at most once a day,
    * so the system prompt stays byte-stable within a campaign run.
@@ -142,6 +149,7 @@ export function buildSystemPrompt(
     c.customInstructions?.trim()
       ? `\nAdditional instructions: ${c.customInstructions.trim()}`
       : "",
+    ...startingDraftBlock(c.startingDraft),
   ]
     .filter(Boolean)
     .join("\n");
@@ -159,6 +167,24 @@ export function buildSystemPrompt(
   ];
 }
 
+/** Max length of a starting draft (UI, API schema, and prompt agree). */
+export const MAX_STARTING_DRAFT_LENGTH = 5000;
+
+function startingDraftBlock(draft?: string | null): string[] {
+  const text = draft?.trim().slice(0, MAX_STARTING_DRAFT_LENGTH);
+  if (!text) return [];
+  return [
+    "",
+    "Starting draft — written and approved by the user. Every email in this campaign is this draft, personalized for one donor:",
+    "<<<",
+    text,
+    ">>>",
+    "- Keep the starting draft's message, structure, length, and ask. Personalize it for the donor: greet them by name and weave in their history or segments where they fit naturally. Keep the subject close to the draft's subject line if it has one.",
+    "- Facts stated in the starting draft count as organization context.",
+    "- All rules above still apply. If the starting draft breaks one (for example a spelled-out dollar amount, markdown, or a placeholder), fix only that part.",
+  ];
+}
+
 /**
  * True when this donor record has no recorded giving signal — i.e. it
  * came in as an event attendee, mailing-list contact, or otherwise
@@ -173,7 +199,11 @@ function isAttendee(d: DonorContext): boolean {
   return noLastGift && noTotals;
 }
 
-export function buildUserPrompt(d: DonorContext, emailType: string): string {
+export function buildUserPrompt(
+  d: DonorContext,
+  emailType: string,
+  opts: { startingDraft?: boolean } = {},
+): string {
   const fmt$ = (n?: number | null) =>
     n == null ? "—" : `$${n.toLocaleString()}`;
   const attendee = isAttendee(d);
@@ -215,7 +245,17 @@ export function buildUserPrompt(d: DonorContext, emailType: string): string {
       ? "- NO RECORDED GIFTS: this person is an event attendee or supporter who hasn't given yet."
       : null,
     "",
-    attendee
+    opts.startingDraft
+      ? // The user's approved draft replaces the email-type framings
+        // below; keep only the guardrails that protect the donor.
+        [
+          attendee
+            ? "This person has not given yet. Do not imply prior gifts: no 'welcome back', 'renew', 'continue your generosity', or similar."
+            : "Do not mention a gap in their giving or use guilt phrasing such as 'we haven't seen you in a while'.",
+          "",
+          "Personalize the starting draft for this donor now.",
+        ].join("\n")
+      : attendee
       ? // First-time-donor conversion framing. Overrides the campaign-
         // level emailType (reactivation / impact_update / etc.) because
         // those framings assume prior giving — confusing for an attendee.

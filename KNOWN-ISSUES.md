@@ -98,3 +98,77 @@ underdelivers on STORY SECOND.
   provided, describe impact in general terms from the mission."
 - Add a Playwright test that an Impact Card's outcome appears in the assembled
   prompt, and that no story text is requested when there are no cards.
+
+---
+
+## Database has drifted from the migration history, so `prisma migrate dev` offers to wipe it
+
+**Found:** 2026-11-05, while adding the `AiGeneration` migration (Phase 1 Feature 2).
+**Severity:** Low for the running app, **high for anyone running Prisma dev
+commands**. Nothing is broken today. The danger is the reset prompt.
+**Plan:** Fix before Feature 3 (which adds the `Card` model and another migration).
+
+### What's different
+
+Prisma compares two things: the database you'd get by replaying every file in
+`prisma/migrations/` in order, and the real Neon database. They differ in two
+small ways. The live database matches `schema.prisma` exactly
+(`prisma migrate diff --from-schema-datasource … --to-schema-datamodel …` is
+empty). It's the migration files that are out of step.
+
+1. **A missing index on `DonorList.uploadedByUserId`.**
+   `20260513_donorlist_uploaded_by/migration.sql` creates
+   `DonorList_uploadedByUserId_idx`. The live database doesn't have it, and
+   `schema.prisma` doesn't declare it. The table has only its primary key. Most
+   likely the change went in with `prisma db push` from a schema without the
+   index, and the SQL file was hand-written with an extra `CREATE INDEX` that
+   never ran.
+2. **Different "on update" settings on two `Invitation` foreign keys.**
+   `20260512_account_management/migration.sql` creates `Invitation_orgId_fkey`
+   and `Invitation_invitedById_fkey` with `ON DELETE CASCADE` only, so updates
+   default to "no action". The live database has
+   `ON UPDATE CASCADE ON DELETE CASCADE`, which is what Prisma generates. Same
+   probable cause: `db push` plus hand-written SQL.
+
+### Is it a risk?
+
+- **Deploys: no.** Vercel runs `prisma migrate deploy`, which only applies
+  migrations missing from `_prisma_migrations` and doesn't check for drift.
+  Every migration, including `20261105_ai_generation_usage`, is recorded as
+  applied. `migrate status` reports "Database schema is up to date!".
+- **App behavior: no.** IDs are never updated, so "on update" never fires. The
+  missing index only matters if something filters donor lists by uploader at
+  scale. Today the column is only written (on upload) and read alongside the
+  list.
+- **Data loss: yes, the real risk.** Because of the drift, `prisma migrate dev`
+  says "We need to reset the public schema" and offers
+  `prisma migrate reset`, which **drops every table and all data**. The local
+  `.env` `DATABASE_URL` points at the same Neon database the app uses. So
+  accepting that prompt locally would wipe the live data. In a non-interactive
+  shell it refuses, but a person at a terminal could say yes.
+- **Fresh databases differ.** A new database built from the migration files
+  (for example a staging branch) gets the extra index and the "no action"
+  update rule, so it won't exactly match production.
+
+### Likely fix
+
+- Add one small catch-up migration that makes the history match reality:
+  `DROP INDEX IF EXISTS "DonorList_uploadedByUserId_idx";` (or add
+  `@@index([uploadedByUserId])` to the schema and create the index on the live
+  database instead), then drop and recreate the two `Invitation` foreign keys
+  with `ON UPDATE CASCADE ON DELETE CASCADE`. Record it with
+  `prisma migrate resolve --applied` on the live database, since the live
+  database already matches.
+- Verify by replaying migrations into a throwaway Neon branch or a local
+  Postgres used as `shadowDatabaseUrl`. `prisma migrate dev` should then report
+  no drift.
+- Stop pointing local `DATABASE_URL` at the production database. Use a Neon dev
+  branch, so a mistaken reset can only hit a copy.
+
+### Workaround today
+
+Never run `prisma migrate dev` or `prisma migrate reset` against this database.
+For new migrations: write the SQL with `prisma migrate diff` (old schema → new
+schema), apply it with `prisma db execute`, then
+`prisma migrate resolve --applied <name>`. This is how
+`20261105_ai_generation_usage` was applied.

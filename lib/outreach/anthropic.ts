@@ -75,7 +75,9 @@ export async function generateDraft(
         system: buildSystemPrompt(campaign)
           .map((b) => b.text)
           .join("\n"),
-        user: buildUserPrompt(donor, campaign.emailType),
+        user: buildUserPrompt(donor, campaign.emailType, {
+          startingDraft: !!campaign.startingDraft?.trim(),
+        }),
       },
       subject: `Test subject for ${donor.name}`,
       body: `Hi ${donor.name},\n\nThis is a deterministic test draft generated for the Playwright E2E suite. It exists so the outreach test can verify the full persistence pipeline without burning real Anthropic credits.\n\nWarmly,\n${campaign.senderName ?? "DonorLume"}`,
@@ -99,7 +101,9 @@ export async function generateDraft(
     messages: [
       {
         role: "user",
-        content: buildUserPrompt(donor, campaign.emailType),
+        content: buildUserPrompt(donor, campaign.emailType, {
+          startingDraft: !!campaign.startingDraft?.trim(),
+        }),
       },
     ],
   });

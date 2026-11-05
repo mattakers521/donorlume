@@ -20,6 +20,7 @@ type DraftMetadata = {
     mission: string;
     senderName?: string | null;
     senderTitle?: string | null;
+    startingDraft?: string | null;
   };
 };
 
@@ -81,6 +82,8 @@ export const POST = withOrg<{ id: string }>(
       tone: draft.campaign.tone,
       emailType: draft.campaign.emailType,
       customInstructions: draft.campaign.customInstructions,
+      // Regenerating keeps the same starting draft the original used.
+      startingDraft: meta.promptConfig.startingDraft ?? null,
     };
 
     let subject: string;

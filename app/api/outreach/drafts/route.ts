@@ -6,9 +6,10 @@ import { z } from "zod";
 import { checkAiCap } from "@/lib/billing/ai-usage";
 import { generateDraft } from "@/lib/outreach/anthropic";
 import { EMPTY_PROMPT_PROFILE, promptProfileFrom } from "@/lib/org-profile";
-import type {
-  CampaignConfig,
-  DonorContext,
+import {
+  MAX_STARTING_DRAFT_LENGTH,
+  type CampaignConfig,
+  type DonorContext,
 } from "@/lib/outreach/prompt";
 import { prisma } from "@/lib/prisma";
 import { withOrg } from "@/lib/with-org";
@@ -39,6 +40,12 @@ const promptConfigSchema = z.object({
   mission: z.string().min(1).max(2000),
   senderName: z.string().max(120).optional().nullable(),
   senderTitle: z.string().max(120).optional().nullable(),
+  /** "Starting draft" from the Assistants hub (see CampaignConfig.startingDraft). */
+  startingDraft: z
+    .string()
+    .max(MAX_STARTING_DRAFT_LENGTH)
+    .optional()
+    .nullable(),
 });
 
 const generateSchema = z.object({
@@ -139,6 +146,7 @@ export const POST = withOrg(async (req, { auth }) => {
     tone: campaign.tone,
     emailType: campaign.emailType,
     customInstructions: campaign.customInstructions,
+    startingDraft: promptConfig.startingDraft ?? null,
   };
 
   const donorCtx: DonorContext = donor;

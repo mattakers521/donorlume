@@ -286,12 +286,14 @@ test("unstructured Campaign Creator output is shown as raw text, never an error"
   await expect(page.getByText(/went wrong|error|couldn.t/i)).toHaveCount(0);
 });
 
-test("Use in AI Outreach prefills a new campaign", async () => {
+test("Use in AI Outreach opens a Starting draft that each donor's email is built from", async () => {
   await page.goto("/assistants");
   await page.getByRole("button", { name: "Year-end appeal" }).click();
   const ws = page.getByTestId("assistant-workspace");
   await ws.getByRole("button", { name: "Generate" }).click();
-  await ws.getByLabel("Body").fill("Dear friend,\n\nHand-edited year-end note.");
+  await ws
+    .getByLabel("Body")
+    .fill("Dear friend,\n\nHand-edited year-end note. A gift of $25 helps.\n\nWarmly,\nAssist Tester");
   await ws.getByRole("button", { name: /use in ai outreach/i }).click();
 
   await page.waitForURL(/\/outreach\/new\?from=assistant/);
@@ -299,10 +301,62 @@ test("Use in AI Outreach prefills a new campaign", async () => {
   // the sample-data path keeps the handoff.
   await page.getByRole("link", { name: /try the wizard with sample data/i }).click();
   await page.waitForURL(/samples=true&from=assistant/);
-  const instructions = page.getByPlaceholder("e.g. Mention our June 14 gala…");
-  await expect(instructions).toHaveValue(/Use this approved draft as the starting point/);
-  await expect(instructions).toHaveValue(/Subject: Test year-end appeal from/);
-  await expect(instructions).toHaveValue(/Hand-edited year-end note\./);
+
+  // A clearly labeled field, not Custom Instructions.
+  const box = page.getByTestId("starting-draft");
+  await expect(box.getByText("Starting draft", { exact: true })).toBeVisible();
+  await expect(box).toContainText(
+    "From Content Writer. The AI will personalize this for each donor.",
+  );
+  const draft = page.getByLabel("Starting draft");
+  await expect(draft).toHaveValue(/^Subject: Test year-end appeal from /);
+  await expect(draft).toHaveValue(/Hand-edited year-end note\./);
+  await expect(
+    page.getByPlaceholder("e.g. Mention our June 14 gala…"),
+  ).toHaveValue("");
+  // Year-end appeal preselects the matching email type.
+  await expect(page.getByRole("button", { name: "Year-End Appeal" })).toBeVisible();
+
+  // Editable before generating.
+  await draft.fill(
+    "Subject: Our year together\n\nDear friend,\n\nEdited in outreach setup. A gift of $25 helps.\n\nWarmly,\nAssist Tester",
+  );
+  // Screenshots for review (test-results/ is gitignored).
+  await page.getByText("Email Type", { exact: true }).scrollIntoViewIfNeeded();
+  await page.screenshot({ path: "test-results/starting-draft-setup.png" });
+  await page.getByRole("button", { name: /select donors/i }).scrollIntoViewIfNeeded();
+  await page.screenshot({ path: "test-results/starting-draft-setup-2.png" });
+
+  // Generate for one sample donor; the prompt is built from the draft.
+  await page.getByRole("button", { name: /select donors/i }).click();
+  await page.getByText("Margaret Chen", { exact: true }).first().click();
+  const draftResponse = page.waitForResponse(
+    (r) => r.url().endsWith("/api/outreach/drafts") && r.request().method() === "POST",
+  );
+  await page.getByRole("button", { name: /generate [1-9]\d* email/i }).click();
+  const res = await draftResponse;
+  expect(res.status()).toBe(201);
+  const { testPrompt, draft: saved } = await res.json();
+  expect(testPrompt.system).toContain(
+    "Every email in this campaign is this draft, personalized for one donor:",
+  );
+  expect(testPrompt.system).toContain("Edited in outreach setup. A gift of $25 helps.");
+  expect(testPrompt.system).not.toContain("Additional instructions:");
+  expect(testPrompt.user).toContain("DONOR: Margaret Chen");
+  expect(testPrompt.user).toContain("Personalize the starting draft for this donor now.");
+  // The draft replaces the email-type framing; the shared rules stay.
+  expect(testPrompt.user).not.toContain("FIRST-TOUCH REACTIVATION");
+  expect(testPrompt.system).toContain(DOLLAR_RULE);
+  // Saved with the draft, so Regenerate reuses the same starting draft.
+  expect(saved.metadata.promptConfig.startingDraft).toContain(
+    "Edited in outreach setup.",
+  );
+});
+
+test("without an assistant handoff, outreach setup has no Starting draft", async () => {
+  await page.goto("/outreach/new?samples=true");
+  await expect(page.getByRole("button", { name: /select donors/i })).toBeVisible();
+  await expect(page.getByTestId("starting-draft")).toHaveCount(0);
 });
 
 test("outreach drafts and assistant generations share one trial counter", async () => {

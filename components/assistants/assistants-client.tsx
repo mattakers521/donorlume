@@ -120,6 +120,7 @@ export function AssistantsClient({
           subject,
           body,
           emailType: active?.quickStart.outreachEmailType ?? null,
+          source: active?.assistant.name ?? null,
         }),
       );
     } catch {
