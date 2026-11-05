@@ -8,6 +8,7 @@ import {
 
 import {
   DOLLAR_RULE,
+  GREETING_RULE,
   PLAIN_TEXT_RULE,
   PLAIN_TEXT_RULE_SOCIAL,
   formatPromptDate,
@@ -17,6 +18,7 @@ import { nextGivingTuesday } from "../../lib/assistants/catalog";
 import {
   findMarkdown,
   findSpelledOutAmounts,
+  hasGreeting,
 } from "../../lib/outreach/plain-text";
 import { buildSystemPrompt } from "../../lib/outreach/prompt";
 
@@ -359,6 +361,63 @@ test("without an assistant handoff, outreach setup has no Starting draft", async
   await expect(page.getByTestId("starting-draft")).toHaveCount(0);
 });
 
+test("every email opens with a greeting, including each Campaign Creator email", async () => {
+  // Detector: the real Campaign Creator email that prompted this rule…
+  expect(
+    hasGreeting("When a veteran walks away from military service, the road ahead can feel uncertain."),
+  ).toBe(false);
+  expect(hasGreeting("Today is the day. Giving Tuesday is here.")).toBe(false);
+  // …and ordinary greetings.
+  for (const g of ["Dear friend,", "Hi Margaret,", "Hello there!", "Good morning, friends,"]) {
+    expect(hasGreeting(`${g}\n\nThank you.`)).toBe(true);
+  }
+
+  // Every prompt that writes an email carries the rule.
+  const writer = await generateViaApi("content-writer", "year-end-appeal");
+  expect(writer.testPrompt.system).toContain(GREETING_RULE);
+  expect(hasGreeting(writer.output.body)).toBe(true);
+
+  const res = await page.request.post("/api/assistants/generate", {
+    data: { assistantId: "campaign-creator", quickStartId: "event-follow-up" },
+  });
+  expect(res.status()).toBe(200);
+  const campaign = await res.json();
+  expect(campaign.testPrompt.system).toContain(GREETING_RULE);
+  expect(campaign.testPrompt.user).toContain('a greeting line such as "Dear friend,"');
+  expect(campaign.output.campaign.ok).toBe(true);
+  expect(campaign.output.campaign.emails).toHaveLength(3);
+  for (const email of campaign.output.campaign.emails) {
+    expect(hasGreeting(email.body)).toBe(true);
+  }
+
+  // Outreach drafts get the same rule.
+  expect(
+    buildSystemPrompt({ orgName: "O", mission: "M", tone: "warm", emailType: "year_end" })[0].text,
+  ).toContain(GREETING_RULE);
+
+  // Posts and blurbs are not emails: no greeting rule.
+  const post = await generateViaApi("content-writer", "giving-tuesday-post");
+  expect(post.testPrompt.system).not.toContain(GREETING_RULE);
+});
+
+test("assistants follow the org's custom AI instructions from Preferences", async () => {
+  const instructions =
+    "Invite people to join our monthly supporters at $5, $10, or $25 a month.";
+  await setCustomInstructions(email, instructions);
+  for (const [assistantId, quickStartId] of [
+    ["content-writer", "year-end-appeal"],
+    ["content-writer", "giving-tuesday-post"],
+    ["campaign-creator", "30-day-challenge"],
+  ]) {
+    const { testPrompt } = await generateViaApi(assistantId, quickStartId);
+    expect(testPrompt.system).toContain(`Additional instructions: ${instructions}`);
+  }
+  // Clearing them in Preferences removes them from the prompt.
+  await setCustomInstructions(email, null);
+  const { testPrompt } = await generateViaApi("content-writer", "year-end-appeal");
+  expect(testPrompt.system).not.toContain("Additional instructions:");
+});
+
 test("outreach drafts and assistant generations share one trial counter", async () => {
   await page.goto("/outreach");
   const before = await remaining(page);
@@ -406,6 +465,25 @@ async function generateViaApi(
     output: { kind: string; subject: string; body: string; text: string };
     testPrompt: { system: string; user: string };
   };
+}
+
+async function setCustomInstructions(userEmail: string, value: string | null) {
+  const { PrismaClient } = await import("@prisma/client");
+  const prisma = new PrismaClient();
+  try {
+    const user = await prisma.user.findUniqueOrThrow({
+      where: { email: userEmail },
+      include: { orgs: true },
+    });
+    const orgId = user.orgs[0]!.orgId;
+    await prisma.orgSettings.upsert({
+      where: { orgId },
+      update: { customInstructions: value },
+      create: { orgId, customInstructions: value },
+    });
+  } finally {
+    await prisma.$disconnect();
+  }
 }
 
 async function fillProfile(userEmail: string) {

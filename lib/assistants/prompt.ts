@@ -11,6 +11,7 @@ import type Anthropic from "@anthropic-ai/sdk";
 
 import {
   formatPromptDate,
+  GREETING_RULE,
   linkRuleFor,
   signatureRuleFor,
   writingRules,
@@ -29,6 +30,11 @@ export type AssistantContext = {
   donationPageUrl: string | null;
   senderName: string | null;
   senderTitle: string | null;
+  /**
+   * The org's custom AI instructions from Preferences (OrgSettings) —
+   * the same text outreach campaigns default to. Read server-side.
+   */
+  customInstructions?: string | null;
   /** Injectable for tests; defaults to now. */
   today?: Date;
 };
@@ -79,7 +85,11 @@ export function buildAssistantSystemPrompt(
     }),
     "- No placeholder brackets or template tokens (no [Name], [Date], or {first_name}). Write copy that is ready to use as-is.",
     linkRuleFor(donationUrl, q.format === "email" || q.format === "campaign" ? "email" : "post"),
-    ...(signs ? [signatureRuleFor(c)] : []),
+    ...(signs ? [GREETING_RULE, signatureRuleFor(c)] : []),
+    // Same placement and wording as the outreach prompt.
+    ...(c.customInstructions?.trim()
+      ? ["", `Additional instructions: ${c.customInstructions.trim()}`]
+      : []),
   ].join("\n");
 
   return [{ type: "text", text }];

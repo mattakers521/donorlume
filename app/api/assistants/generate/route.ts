@@ -75,7 +75,7 @@ export const POST = withOrg(async (req, { auth }) => {
     }),
     prisma.orgSettings.findUnique({
       where: { orgId: auth.org.id },
-      select: { senderName: true, senderTitle: true },
+      select: { senderName: true, senderTitle: true, customInstructions: true },
     }),
     prisma.user.findUnique({
       where: { id: auth.userId },
@@ -114,6 +114,8 @@ export const POST = withOrg(async (req, { auth }) => {
         donationPageUrl: profile.donationPageUrl,
         senderName: settings?.senderName?.trim() || user?.name?.trim() || null,
         senderTitle: settings?.senderTitle?.trim() || null,
+        // Preferences → custom AI instructions, as outreach uses them.
+        customInstructions: settings?.customInstructions?.trim() || null,
       },
       notes ?? null,
     );

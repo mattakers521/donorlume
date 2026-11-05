@@ -16,6 +16,7 @@ import type Anthropic from "@anthropic-ai/sdk";
 import {
   PROMPT_TIME_ZONE,
   formatPromptDate,
+  GREETING_RULE,
   linkRuleFor,
   signatureRuleFor,
   writingRules,
@@ -125,6 +126,7 @@ export function buildSystemPrompt(
     ...writingRules({
       factSources: "the organization context or the donor's notes",
     }),
+    GREETING_RULE,
     "- Adjust approach by donor type (Individual / Foundation / Corporate).",
     "- Keep it under 250 words.",
     "- No placeholder brackets or template tokens.",

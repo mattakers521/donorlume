@@ -45,3 +45,15 @@ const SPELLED_AMOUNT = new RegExp(
 export function findSpelledOutAmounts(text: string): string[] {
   return text.match(SPELLED_AMOUNT) ?? [];
 }
+
+const GREETING =
+  /^(?:dear|hi|hello|hey|greetings|good (?:morning|afternoon|evening))\b[^\n]{0,60}$/i;
+
+/**
+ * True when the email body opens with a greeting line ("Dear friend,",
+ * "Hi Margaret,"). Pass the body only, not the Subject line.
+ */
+export function hasGreeting(body: string): boolean {
+  const first = body.trim().split("\n", 1)[0]?.trim() ?? "";
+  return GREETING.test(first);
+}

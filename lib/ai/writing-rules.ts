@@ -32,6 +32,10 @@ export const DATE_RULE =
 export const DOLLAR_RULE =
   '- Write every dollar amount as digits with a dollar sign, such as $5, $10, $25, or $1,000. Never spell amounts out in words (not "five dollars" or "twenty-five dollars").';
 
+/** Emails only (outreach drafts, Content Writer emails, Campaign Creator emails). */
+export const GREETING_RULE =
+  '- Open every email with a greeting on its own line, such as "Dear friend," (or the donor\'s first name when you have it), followed by a blank line. Never start an email directly with its first sentence.';
+
 export const PLAIN_TEXT_RULE =
   "- Write in plain text only. No markdown or formatting characters: no asterisks, underscores, pound signs, or backticks; no bold or italics; no bullet symbols or bulleted lists. Use ordinary sentences and paragraphs — emails are sent as plain text, so any such characters show up literally.";
 

@@ -33,7 +33,7 @@ export const CAMPAIGN_FORMAT_INSTRUCTIONS = [
   "EMAIL 1",
   "Send: the send date and time of day",
   "Subject: the subject line",
-  "(blank line, then the email body, signed off as instructed)",
+  "(blank line, then the email body: a greeting line such as \"Dear friend,\", a blank line, the message, then the sign-off as instructed)",
   "",
   "EMAIL 2 and EMAIL 3 follow the same layout. Write nothing before CAMPAIGN BRIEF or after the last email. Each email body is under 200 words.",
 ].join("\n");
