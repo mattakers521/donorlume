@@ -31,6 +31,7 @@ export default {
         nextUrl.pathname.startsWith("/discover") ||
         nextUrl.pathname.startsWith("/lapsed") ||
         nextUrl.pathname.startsWith("/outreach") ||
+        nextUrl.pathname.startsWith("/assistants") ||
         nextUrl.pathname.startsWith("/donors") ||
         nextUrl.pathname.startsWith("/reports") ||
         nextUrl.pathname.startsWith("/settings") ||

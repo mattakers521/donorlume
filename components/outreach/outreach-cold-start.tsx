@@ -15,7 +15,12 @@ import { C, brandGradient, shadow } from "@/lib/design";
  * `?samples=true`, which the page detects to mount the wizard
  * with samples-only and a clear sample-mode banner.
  */
-export function OutreachColdStart() {
+export function OutreachColdStart({
+  fromAssistant = false,
+}: {
+  /** Keep the Assistants-page handoff alive through the samples link. */
+  fromAssistant?: boolean;
+} = {}) {
   return (
     <div
       style={{
@@ -112,7 +117,11 @@ export function OutreachColdStart() {
           }}
         >
           <Link
-            href="/outreach/new?samples=true"
+            href={
+              fromAssistant
+                ? "/outreach/new?samples=true&from=assistant"
+                : "/outreach/new?samples=true"
+            }
             style={{
               display: "inline-flex",
               alignItems: "center",

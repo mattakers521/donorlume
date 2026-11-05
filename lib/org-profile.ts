@@ -87,6 +87,15 @@ export function isProfileGrounded(profile: OrgProfile): boolean {
   return GROUNDING_FIELDS.every((k) => isFilled(profile, k));
 }
 
+/** Grounding fields still empty, in display order (for "complete your profile" prompts). */
+export function missingGroundingFields(
+  profile: OrgProfile,
+): { key: ProfileFieldKey; label: string }[] {
+  return PROFILE_FIELDS.filter(
+    (f) => GROUNDING_FIELDS.includes(f.key) && !isFilled(profile, f.key),
+  );
+}
+
 /**
  * Split a comma/newline-separated string into clean, de-duplicated
  * tags (case-insensitive), capped in count and length.

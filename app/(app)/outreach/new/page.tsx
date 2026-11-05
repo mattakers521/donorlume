@@ -1,11 +1,13 @@
 import type { CohortDefinition, Donor, DonorCohort } from "@prisma/client";
 
+import { countAiUsage } from "@/lib/billing/ai-usage";
 import { isInUnpaidTrial } from "@/lib/billing/trial";
 import { getFromEmail } from "@/lib/email/resend";
 import type { DonorContext } from "@/lib/outreach/prompt";
 import { prisma } from "@/lib/prisma";
 import { SAMPLE_DONORS } from "@/lib/outreach/sample-donors";
 import { getOrgContext } from "@/lib/with-org";
+import { AssistantHandoffOutreach } from "@/components/outreach/assistant-handoff";
 import { OutreachClient } from "@/components/outreach/outreach-client";
 import { OutreachColdStart } from "@/components/outreach/outreach-cold-start";
 import { TrialAiCounter } from "@/components/outreach/trial-ai-counter";
@@ -32,6 +34,10 @@ export default async function OutreachPage({
      * "no selection params" path — load every org donor — and the
      * OutreachClient narrows the initial selection to the
      * sessionStorage subset on mount.
+     *
+     * `from=assistant` is set by "Use in AI Outreach" on /assistants,
+     * which stashes the email in sessionStorage; AssistantHandoffOutreach
+     * prefills the custom instructions from it.
      */
     from?: string;
     /**
@@ -140,7 +146,7 @@ export default async function OutreachPage({
   // accidentally generate AI drafts against (and burn trial credits).
   const samplesOptIn = params.samples === "true";
   if (realDonors.length === 0 && !samplesOptIn) {
-    return <OutreachColdStart />;
+    return <OutreachColdStart fromAssistant={params.from === "assistant"} />;
   }
 
   // Fetch org settings + all cohort defs for the filter bar.
@@ -205,17 +211,18 @@ export default async function OutreachPage({
     trialEndsAt: org.trialEndsAt,
     stripeSubscriptionId: org.stripeSubscriptionId,
   });
-  const trialDraftsUsed = inUnpaidTrial
-    ? await prisma.outreachDraft.count({
-        where: { campaign: { orgId: org.id } },
-      })
-    : 0;
+  // Counts outreach drafts + Assistants-hub generations (one shared cap).
+  const trialDraftsUsed = inUnpaidTrial ? await countAiUsage(org.id) : 0;
 
   // Sample-mode banner — only renders on the explicit ?samples=true
   // opt-in path. We don't show it when the user has real donors plus
   // the sample fallback, because in that case samples are background
   // noise, not the foreground story.
   const showSampleBanner = realDonors.length === 0 && samplesOptIn;
+
+  // ?from=assistant — an email from /assistants prefills the form.
+  const Wizard =
+    params.from === "assistant" ? AssistantHandoffOutreach : OutreachClient;
 
   return (
     <>
@@ -267,7 +274,7 @@ export default async function OutreachPage({
           </a>
         </div>
       )}
-      <OutreachClient
+      <Wizard
         defaults={{
           orgName: org.name,
           mission: org.mission ?? "",

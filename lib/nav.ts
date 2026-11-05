@@ -11,6 +11,7 @@ import {
   Search,
   Settings,
   Shield,
+  Sparkles,
   User,
   Users,
   type LucideIcon,
@@ -51,6 +52,7 @@ export const NAV: NavItem[] = [
   { id: "lapsed", label: "Upload & Score", path: "/lapsed", Icon: RefreshCw },
   { id: "cohorts", label: "Donor Segments", path: "/cohorts", Icon: Layers },
   { id: "outreach", label: "AI Outreach", path: "/outreach", Icon: Mail },
+  { id: "assistants", label: "AI Assistants", path: "/assistants", Icon: Sparkles },
   { id: "reports", label: "Reports", path: "/reports", Icon: PieChart },
 ];
 
@@ -149,6 +151,10 @@ export const PAGE_TITLES: Record<string, { title: string; sub?: string }> = {
   "/outreach/campaigns": {
     title: "Campaign Report",
     sub: "Delivery, opens, clicks, and segment performance.",
+  },
+  "/assistants": {
+    title: "AI Assistants",
+    sub: "One-click starting points for appeals, posts, and full campaigns.",
   },
   "/reports": {
     title: "Reports",

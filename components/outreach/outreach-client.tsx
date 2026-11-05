@@ -82,6 +82,8 @@ type Defaults = {
   customInstructions: string;
 };
 
+export type OutreachClientProps = Props;
+
 type Props = {
   defaults: Defaults;
   realDonors: SelectableDonor[];
